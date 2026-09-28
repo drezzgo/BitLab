@@ -1,0 +1,417 @@
+diff --git a/src/core/interpretation/index.ts b/src/core/interpretation/index.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/interpretation/index.ts
+@@ -0,0 +1,64 @@
++import type { HuffmanContainerMetrics } from '../container';
++import type { SourceStatistics } from '../statistics';
++
++export type SizeOutcome = 'lower' | 'equal' | 'higher';
++
++export interface SourceInterpretation {
++  entropyGapBitsPerSymbol: number;
++  entropyUtilizationPercent: number;
++  dominantSymbolProbabilityPercent: number | null;
++  singleObservedSymbol: boolean;
++}
++
++export interface HuffmanInterpretation {
++  codeGapBitsPerSymbol: number;
++  payloadDeltaBits: number;
++  payloadOutcome: SizeOutcome;
++  nonPayloadOverheadBytes: number;
++  containerDeltaBytes: number;
++  containerOutcome: SizeOutcome;
++}
++
++function outcomeFromDelta(delta: number): SizeOutcome {
++  if (delta < 0) return 'lower';
++  if (delta > 0) return 'higher';
++  return 'equal';
++}
++
++export function interpretSourceStatistics(statistics: SourceStatistics): SourceInterpretation {
++  const dominant = statistics.topSymbols[0];
++
++  return {
++    entropyGapBitsPerSymbol: Math.max(
++      0,
++      statistics.theoreticalBitsPerSymbol - statistics.entropyBitsPerSymbol,
++    ),
++    entropyUtilizationPercent: statistics.entropyUtilizationPercent,
++    dominantSymbolProbabilityPercent: dominant ? dominant.probability * 100 : null,
++    singleObservedSymbol: statistics.totalSymbols > 0 && statistics.uniqueSymbols === 1,
++  };
++}
++
++export function interpretHuffmanMetrics(
++  metrics: HuffmanContainerMetrics,
++  originalSizeBytes: number,
++): HuffmanInterpretation {
++  if (!Number.isSafeInteger(originalSizeBytes) || originalSizeBytes < 0) {
++    throw new RangeError('originalSizeBytes debe ser un entero seguro mayor o igual que cero.');
++  }
++
++  const payloadDeltaBits = metrics.encodedBitLength - metrics.fixedLengthBits;
++  const containerDeltaBytes = metrics.containerBytes - originalSizeBytes;
++
++  return {
++    codeGapBitsPerSymbol: Math.max(
++      0,
++      metrics.averageCodeLengthBits - metrics.entropyBitsPerSymbol,
++    ),
++    payloadDeltaBits,
++    payloadOutcome: outcomeFromDelta(payloadDeltaBits),
++    nonPayloadOverheadBytes: metrics.containerBytes - metrics.payloadBytes,
++    containerDeltaBytes,
++    containerOutcome: outcomeFromDelta(containerDeltaBytes),
++  };
++}
+diff --git a/tests/interpretation/interpretation.test.ts b/tests/interpretation/interpretation.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/interpretation/interpretation.test.ts
+@@ -0,0 +1,69 @@
++import { describe, expect, it } from 'vitest';
++import type { HuffmanContainerMetrics } from '../../src/core/container';
++import {
++  interpretHuffmanMetrics,
++  interpretSourceStatistics,
++} from '../../src/core/interpretation';
++import { analyzeSourceStatistics } from '../../src/core/statistics';
++
++describe('interpretación pedagógica', () => {
++  it('deriva la brecha de entropía y la concentración observada sin heurísticas por extensión', () => {
++    const statistics = analyzeSourceStatistics(new Uint8Array([0x41, 0x41, 0x41, 0x41]), 8);
++    const interpretation = interpretSourceStatistics(statistics);
++
++    expect(interpretation.singleObservedSymbol).toBe(true);
++    expect(interpretation.dominantSymbolProbabilityPercent).toBe(100);
++    expect(interpretation.entropyGapBitsPerSymbol).toBe(8);
++    expect(interpretation.entropyUtilizationPercent).toBe(0);
++  });
++
++  it('distingue ahorro de payload de crecimiento del contenedor', () => {
++    const metrics: HuffmanContainerMetrics = {
++      entropyBitsPerSymbol: 1.5,
++      averageCodeLengthBits: 1.75,
++      efficiencyPercent: 85.7143,
++      totalSymbols: 100,
++      uniqueSymbols: 4,
++      fixedLengthBits: 800,
++      encodedBitLength: 400,
++      payloadBytes: 50,
++      metadataBytes: 35,
++      codebookMetadataBytes: 20,
++      integrityMetadataBytes: 15,
++      containerBytes: 120,
++      payloadSavingsPercent: 50,
++      overallVariationPercent: 20,
++    };
++
++    const interpretation = interpretHuffmanMetrics(metrics, 100);
++
++    expect(interpretation.codeGapBitsPerSymbol).toBeCloseTo(0.25);
++    expect(interpretation.payloadDeltaBits).toBe(-400);
++    expect(interpretation.payloadOutcome).toBe('lower');
++    expect(interpretation.nonPayloadOverheadBytes).toBe(70);
++    expect(interpretation.containerDeltaBytes).toBe(20);
++    expect(interpretation.containerOutcome).toBe('higher');
++  });
++
++  it('rechaza tamaños originales que no pueden representarse de forma segura', () => {
++    const metrics = {
++      entropyBitsPerSymbol: 0,
++      averageCodeLengthBits: 0,
++      efficiencyPercent: 0,
++      totalSymbols: 0,
++      uniqueSymbols: 0,
++      fixedLengthBits: 0,
++      encodedBitLength: 0,
++      payloadBytes: 0,
++      metadataBytes: 0,
++      codebookMetadataBytes: 0,
++      integrityMetadataBytes: 0,
++      containerBytes: 0,
++      payloadSavingsPercent: 0,
++      overallVariationPercent: 0,
++    } satisfies HuffmanContainerMetrics;
++
++    expect(() => interpretHuffmanMetrics(metrics, -1)).toThrow(RangeError);
++    expect(() => interpretHuffmanMetrics(metrics, Number.MAX_SAFE_INTEGER + 1)).toThrow(RangeError);
++  });
++});
+diff --git a/src/components/react/SourceStatisticsPanel.tsx b/src/components/react/SourceStatisticsPanel.tsx
+--- a/src/components/react/SourceStatisticsPanel.tsx
++++ b/src/components/react/SourceStatisticsPanel.tsx
+@@ -1,4 +1,5 @@
+ import { useEffect, useMemo, useRef, useState } from 'react';
++import { interpretSourceStatistics } from '../../core/interpretation';
+ import type { SourceStatistics } from '../../core/statistics';
+ import type { BitLabWorkerResult } from '../../workers/protocol';
+ import { makeRequestId, startWorkerTask, type WorkerTask } from './worker-client';
+@@ -79,6 +80,11 @@
+     return Math.min(100, Math.max(0, result.entropyUtilizationPercent));
+   }, [result]);
+ 
++  const interpretation = useMemo(
++    () => (result ? interpretSourceStatistics(result) : null),
++    [result],
++  );
++
+   return (
+     <section className="source-analysis" aria-labelledby="source-analysis-title">
+       <div className="source-analysis-heading">
+@@ -141,6 +147,49 @@
+               ))}
+             </div>
+           </div>
++
++          {interpretation && (
++            <section className="interpretation-panel" aria-label="Interpretación de la fuente">
++              <div className="interpretation-heading">
++                <span>LECTURA DEL RESULTADO</span>
++                <strong>Qué significan estas métricas para esta fuente</strong>
++              </div>
++              <div className="interpretation-grid">
++                <article>
++                  <span>Entropía frente al ancho fijo</span>
++                  <strong>
++                    {decimalFormatter.format(result.entropyBitsPerSymbol)} de {result.wordSizeBits} bit/símbolo
++                  </strong>
++                  <p>
++                    La diferencia es {decimalFormatter.format(interpretation.entropyGapBitsPerSymbol)} bit/símbolo.
++                    Es redundancia estadística respecto a la representación fija; no son bits que ya hayan sido comprimidos.
++                  </p>
++                </article>
++                <article>
++                  <span>Distribución observada</span>
++                  <strong>
++                    {interpretation.dominantSymbolProbabilityPercent === null
++                      ? 'Sin símbolos observados'
++                      : interpretation.singleObservedSymbol
++                        ? 'Un único símbolo observado'
++                        : `${decimalFormatter.format(interpretation.dominantSymbolProbabilityPercent)} % en el símbolo más frecuente`}
++                  </strong>
++                  <p>
++                    La entropía depende de toda la distribución. La frecuencia dominante ayuda a leer la concentración,
++                    pero no sustituye el cálculo completo de H(X).
++                  </p>
++                </article>
++                <article>
++                  <span>Al cambiar N</span>
++                  <strong>{integerFormatter.format(result.uniqueSymbols)} símbolos distintos con N = {result.wordSizeBits}</strong>
++                  <p>
++                    Cambiar el tamaño de palabra redefine los símbolos y el alfabeto observado. Por eso las probabilidades
++                    y la entropía deben recalcularse para cada N.
++                  </p>
++                </article>
++              </div>
++            </section>
++          )}
+         </>
+       )}
+ 
+diff --git a/src/components/react/CodingMetricsPanel.tsx b/src/components/react/CodingMetricsPanel.tsx
+--- a/src/components/react/CodingMetricsPanel.tsx
++++ b/src/components/react/CodingMetricsPanel.tsx
+@@ -1,4 +1,5 @@
+ import type { HuffmanContainerMetrics } from '../../core/container';
++import { interpretHuffmanMetrics } from '../../core/interpretation';
+ 
+ interface Props {
+   metrics: HuffmanContainerMetrics;
+@@ -18,6 +19,7 @@
+ export default function CodingMetricsPanel({ metrics, originalSizeBytes }: Props) {
+   const payloadImproved = metrics.payloadSavingsPercent >= 0;
+   const containerImproved = metrics.overallVariationPercent <= 0;
++  const interpretation = interpretHuffmanMetrics(metrics, originalSizeBytes);
+ 
+   return (
+     <section className="coding-metrics" aria-labelledby="coding-metrics-title">
+@@ -97,6 +99,59 @@
+           </p>
+         </article>
+       </div>
++
++      <section className="interpretation-panel" aria-label="Interpretación de la codificación Huffman">
++        <div className="interpretation-heading">
++          <span>LECTURA DEL RESULTADO</span>
++          <strong>De la teoría al tamaño real del archivo</strong>
++        </div>
++        <div className="interpretation-grid">
++          <article>
++            <span>Huffman frente a H(X)</span>
++            <strong>L̄ − H = {decimal.format(interpretation.codeGapBitsPerSymbol)} bit/símbolo</strong>
++            <p>
++              H(X) es el límite informacional de la fuente y L̄ es lo que usa este código en promedio.
++              La diferencia muestra la separación entre ambos valores para este experimento.
++            </p>
++          </article>
++          <article>
++            <span>Payload</span>
++            <strong>
++              {interpretation.payloadOutcome === 'lower' && `ahorra ${integer.format(Math.abs(interpretation.payloadDeltaBits))} bits`}
++              {interpretation.payloadOutcome === 'equal' && 'mantiene el mismo número de bits'}
++              {interpretation.payloadOutcome === 'higher' && `añade ${integer.format(interpretation.payloadDeltaBits)} bits`}
++            </strong>
++            <p>
++              Esta comparación todavía ignora header, nombre, MIME, codebook e integridad. Mide únicamente
++              la representación fija frente al flujo Huffman.
++            </p>
++          </article>
++          <article>
++            <span>Overhead del contenedor</span>
++            <strong>{formatBytes(interpretation.nonPayloadOverheadBytes)} fuera del payload</strong>
++            <p>
++              Es la diferencia entre el tamaño completo de <code>.bitlab</code> y los bytes ocupados por el payload.
++              Incluye estructura del formato y metadata necesaria para recuperar el archivo.
++            </p>
++          </article>
++          <article>
++            <span>Resultado final</span>
++            <strong>
++              {interpretation.payloadOutcome === 'lower' && interpretation.containerOutcome === 'higher'
++                ? 'el overhead supera el ahorro del payload'
++                : interpretation.containerOutcome === 'lower'
++                  ? 'el ahorro se conserva en el archivo final'
++                  : interpretation.containerOutcome === 'equal'
++                    ? 'el archivo final conserva el tamaño original'
++                    : 'el archivo final resulta mayor'}
++            </strong>
++            <p>
++              El contenedor cambia {formatBytes(Math.abs(interpretation.containerDeltaBytes))} frente al original.
++              Que sea mayor no invalida Huffman ni la reversibilidad: describe el balance real entre payload y metadata.
++            </p>
++          </article>
++        </div>
++      </section>
+     </section>
+   );
+ }
+diff --git a/src/styles/global.css b/src/styles/global.css
+--- a/src/styles/global.css
++++ b/src/styles/global.css
+@@ -1,3 +1,65 @@
+ @media (max-width: 980px) {
+   .word-comparator-head { flex-direction: column; }
+ }
++
++/* pedagogical interpretation */
++.interpretation-panel {
++  margin-top: 14px;
++  padding: 14px;
++  border: 1px solid rgba(180,151,57,.22);
++  border-radius: 10px;
++  background: #09090d;
++}
++.interpretation-heading {
++  display: flex;
++  align-items: baseline;
++  justify-content: space-between;
++  gap: 16px;
++  margin-bottom: 10px;
++}
++.interpretation-heading > span {
++  color: var(--neon-gold);
++  font-size: 9px;
++  font-weight: 800;
++  letter-spacing: .09em;
++}
++.interpretation-heading > strong {
++  color: var(--ink);
++  font-size: 13px;
++}
++.interpretation-grid {
++  display: grid;
++  grid-template-columns: repeat(auto-fit,minmax(190px,1fr));
++  gap: 8px;
++}
++.interpretation-grid article {
++  min-width: 0;
++  padding: 12px;
++  border: 1px solid var(--line);
++  border-radius: 8px;
++  background: var(--surface);
++}
++.interpretation-grid article > span {
++  display: block;
++  color: var(--muted);
++  font-size: 9px;
++  font-weight: 800;
++  letter-spacing: .05em;
++  text-transform: uppercase;
++}
++.interpretation-grid article > strong {
++  display: block;
++  margin-top: 5px;
++  color: var(--ink);
++  font-size: 14px;
++  line-height: 1.35;
++}
++.interpretation-grid article > p {
++  margin: 7px 0 0;
++  color: var(--muted);
++  font-size: 11px;
++  line-height: 1.55;
++}
++@media (max-width: 600px) {
++  .interpretation-heading { flex-direction: column; align-items: flex-start; }
++}
+diff --git a/docs/RESULT_INTERPRETATION.md b/docs/RESULT_INTERPRETATION.md
+new file mode 100644
+--- /dev/null
++++ b/docs/RESULT_INTERPRETATION.md
+@@ -0,0 +1,52 @@
++# Interpretación de resultados
++
++BitLab separa el cálculo de la explicación visual. Las métricas se obtienen en el core y la interfaz presenta relaciones derivadas de esos valores sin inferir propiedades a partir de la extensión del archivo.
++
++## Fuente
++
++Para una palabra de `N` bits se muestran:
++
++- entropía `H(X)`;
++- diferencia `N - H(X)`;
++- utilización de entropía respecto al ancho fijo;
++- frecuencia del símbolo más observado;
++- cantidad de símbolos distintos.
++
++`N - H(X)` expresa redundancia estadística respecto a una representación fija de `N` bits. No representa bits que ya hayan sido comprimidos.
++
++La frecuencia del símbolo dominante ayuda a observar si la distribución está concentrada, pero la entropía depende de todas las probabilidades de la fuente.
++
++Al cambiar `N` cambia la definición de símbolo. Por ello se reconstruyen frecuencias, probabilidades y entropía para cada tamaño de palabra.
++
++## Huffman
++
++La lectura pedagógica distingue cuatro niveles:
++
++1. `H(X)`: información promedio de la fuente.
++2. `L̄`: longitud media obtenida por Huffman.
++3. payload: bits realmente emitidos por el código.
++4. contenedor: payload más header, nombre, MIME, metadata del codebook e integridad.
++
++La diferencia `L̄ - H(X)` muestra cuánto se separa la longitud media del valor de entropía en ese experimento.
++
++## Payload y archivo final
++
++La reducción del payload no implica necesariamente que el archivo `.bitlab` sea menor que el original.
++
++BitLab calcula:
++
++```text
++overhead = bytes(.bitlab) - bytes(payload)
++```
++
++y compara además:
++
++```text
++bytes(.bitlab) - bytes(original)
++```
++
++Así puede mostrarse explícitamente un caso donde Huffman reduce el flujo codificado pero la metadata necesaria para reconstruirlo supera ese ahorro.
++
++## Qué no se concluye
++
++La interpretación no declara que un formato comprime bien o mal por ser PNG, JPEG, ZIP, PDF u otro tipo. Todos los casos se explican a partir de las métricas medidas sobre los bytes y el tamaño de palabra seleccionado.

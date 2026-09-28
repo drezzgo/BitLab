@@ -1,0 +1,797 @@
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -1,18 +1,50 @@
+ # BitLab
+ 
+-Aplicación web académica para estudiar codificación de fuente sobre archivos arbitrarios mediante palabras binarias configurables de 2 a 2048 bits.
++Aplicación web académica para estudiar **codificación de fuente** sobre archivos arbitrarios tratados como secuencias de bits. El usuario puede definir palabras lógicas entre 2 y 2048 bits, analizar la distribución de símbolos, codificar con Huffman, crear un contenedor `.bitlab`, recuperar el archivo original y comparar el efecto de distintos tamaños de palabra.
+ 
+-## Funcionalidades actuales
++El procesamiento se realiza localmente en el navegador; BitLab no necesita un backend para analizar o reconstruir archivos.
+ 
+-- lectura local de archivos como bytes;
+-- segmentación exacta de 2 a 2048 bits;
+-- preview para imágenes e identificación visual de otros formatos;
+-- contenedor binario propio `.bitlab`;
+-- codec RAW de referencia;
+-- estadística de símbolos, probabilidades y entropía;
+-- codec Huffman canónico reversible;
+-- métricas de longitud media, eficiencia y reducción del payload;
+-- recuperación del archivo original desde RAW o Huffman.
++## Funcionalidades
++
++- lectura de cualquier archivo como `Uint8Array`;
++- segmentación exacta en símbolos de 2 a 2048 bits, incluido padding lógico;
++- reconstrucción byte a byte;
++- estadística de frecuencia y probabilidad de símbolos;
++- entropía `H(X)` y redundancia respecto a representación fija;
++- Huffman canónico reversible;
++- longitud media, eficiencia y comparación entre representación fija y payload;
++- distinción entre reducción del payload y tamaño real del contenedor;
++- contenedor binario propio `.bitlab` con firma `BTLB`;
++- codecs RAW y Huffman;
++- SHA-256 del archivo original y verificación tras la reconstrucción;
++- procesamiento intensivo mediante Web Workers con progreso y cancelación;
++- comparador de tamaños de palabra sobre el mismo archivo;
++- fuentes reproducibles y casos válidos BMP, PNG, JPEG, PDF y ZIP;
++- recuperación de contenedores actuales y compatibilidad con contenedores anteriores sin metadata de integridad.
++
++## Arquitectura
++
++```text
++Astro
++  └─ estructura de la aplicación
++
++React
++  └─ interacción y presentación
++
++TypeScript core
++  ├─ bits y segmentación
++  ├─ estadísticas
++  ├─ Huffman
++  ├─ contenedor
++  ├─ integridad
++  ├─ interpretación
++  └─ comparación
++
++Web Worker
++  └─ operaciones intensivas
++```
++
++Las palabras binarias grandes no se representan mediante `Number`. Los bytes permanecen en estructuras binarias y `BigInt` se usa únicamente donde corresponde a enteros persistidos de gran tamaño.
+ 
+ ## Ejecutar
+ 
+@@ -21,6 +53,12 @@
+ pnpm test
+ pnpm build
+ pnpm dev
++```
++
++Antes del cierre o merge final:
++
++```bash
++powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/final-check.ps1
+ ```
+ 
+ ## Documentación
+@@ -32,3 +70,16 @@
+ - `docs/CODING_METRICS.md`
+ - `docs/CONTAINER_FORMAT.md`
+ - `docs/FILE_FORMAT_IMPLEMENTATION.md`
++- `docs/INTEGRITY.md`
++- `docs/PROCESSING_ARCHITECTURE.md`
++- `docs/WORD_SIZE_COMPARISON.md`
++- `docs/DEMO_SOURCES.md`
++- `docs/REAL_FORMAT_EXAMPLES.md`
++- `docs/RESULT_INTERPRETATION.md`
++- `docs/VALIDATION.md`
++- `docs/ACADEMIC_DEFENSE.md`
++- `docs/FINAL_CHECKLIST.md`
++
++## Alcance
++
++BitLab es una herramienta académica para estudiar teoría de la información y codificación de fuente. No pretende sustituir formatos de compresión de propósito general ni afirmar que existe un tamaño de palabra universalmente óptimo para todos los archivos.
+diff --git a/docs/SCOPE.md b/docs/SCOPE.md
+--- a/docs/SCOPE.md
++++ b/docs/SCOPE.md
+@@ -2,12 +2,43 @@
+ 
+ BitLab procesa archivos localmente en el navegador como secuencias de bytes. El tamaño configurable de palabra se interpreta como el número de bits de cada símbolo lógico y puede tomar valores enteros entre 2 y 2048.
+ 
+-La segmentación binaria no se presenta como compresión. El codec disponible actualmente es RAW y su objetivo es validar un formato reversible de intercambio antes de incorporar codificación de fuente.
++La segmentación binaria no se presenta como compresión. Sobre los símbolos resultantes, BitLab puede estudiar la distribución de la fuente y aplicar codificación Huffman canónica. El codec RAW se conserva como referencia sin compresión.
++
++## Qué estudia
++
++- cómo cambia el alfabeto observado al modificar el tamaño de palabra;
++- frecuencia y probabilidad de símbolos;
++- entropía de la fuente;
++- redundancia respecto a una representación fija;
++- longitud media y eficiencia de Huffman;
++- diferencia entre payload codificado y contenedor completo;
++- costo de metadata y codebook;
++- reconstrucción exacta;
++- integridad mediante SHA-256;
++- efecto de distintos tamaños de palabra sobre una misma fuente.
+ 
+ ## Principios
+ 
+ - Los bytes se mantienen en `Uint8Array`.
+-- No se representan palabras grandes mediante `Number`.
+-- El formato del archivo no modifica el tratamiento binario.
++- No se representan palabras de hasta 2048 bits mediante `Number`.
++- El formato del archivo no modifica el tratamiento binario del motor.
++- La extensión o MIME se usa para presentación y para conservar metadata, no para decidir las métricas.
+ - El resultado debe poder reconstruirse byte a byte.
+-- Los cálculos visibles deben poder auditarse desde el tamaño original del archivo.
++- Los cálculos visibles deben poder auditarse desde los datos reales del archivo.
++- Una reducción del payload no implica automáticamente una reducción del `.bitlab` completo.
++
++## Procesamiento
++
++Las operaciones intensivas se ejecutan en un Web Worker para evitar bloquear la interfaz. Actualmente el archivo completo se carga con `File.arrayBuffer()` y el resultado también se materializa en memoria.
++
++Por tanto, BitLab no implementa streaming de archivos arbitrariamente grandes. El Worker mejora la capacidad de respuesta, pero no elimina los límites de memoria del navegador.
++
++## Integridad
++
++Los contenedores actuales pueden guardar SHA-256 del archivo original. Al recuperar el archivo se calcula nuevamente el digest y se compara con el valor almacenado.
++
++Una coincidencia verifica la igualdad del digest; no certifica autoría, ausencia de malware ni seguridad general del archivo.
++
++## Objetivo académico
++
++El objetivo es que un experimento pueda explicarse desde la definición de símbolo hasta el tamaño final del contenedor, distinguiendo teoría, codificación y overhead del formato.
+diff --git a/docs/VALIDATION.md b/docs/VALIDATION.md
+--- a/docs/VALIDATION.md
++++ b/docs/VALIDATION.md
+@@ -1,30 +1,32 @@
+ # Validación
+ 
+-La validación del proyecto se apoya en propiedades reproducibles.
++La validación de BitLab se apoya en propiedades reproducibles y en la separación entre el motor binario, los codecs y la interfaz.
+ 
+ ## Round-trip
+ 
+-Para todo archivo de prueba y ancho soportado:
++La propiedad principal es:
+ 
+ ```text
+ restore(encode(x)) = x
+ ```
+ 
+-Los tests cubren tamaños como:
++Los tests cubren tamaños de palabra como:
+ 
+ ```text
+ 2, 3, 7, 8, 13, 31, 64, 127, 256, 511, 1024, 2048 bits
+ ```
+ 
++Se incluyen tamaños no múltiplos de 8 para comprobar el manejo de padding y estado de bits.
++
+ ## Integridad
+ 
+-Los contenedores nuevos guardan SHA-256 del archivo original. Después de restaurar:
++Los contenedores actuales guardan SHA-256 del archivo original. Después de restaurar:
+ 
+ ```text
+ SHA256(original) = SHA256(restaurado)
+ ```
+ 
+-También se prueba la detección de una discrepancia de digest.
++También se prueba la detección de una discrepancia de digest y la lectura de contenedores anteriores sin metadata de integridad.
+ 
+ ## Huffman
+ 
+@@ -34,10 +36,11 @@
+ - decodificación exacta;
+ - archivo vacío;
+ - fuente de un solo símbolo;
+-- palabras no múltiplo de 8;
+-- palabra de 2048 bits.
++- palabras no múltiplos de 8;
++- palabra de 2048 bits;
++- métricas coherentes de entropía, longitud media y payload.
+ 
+-## Formato
++## Contenedor
+ 
+ Se comprueba rechazo de:
+ 
+@@ -45,16 +48,41 @@
+ - versión no soportada;
+ - longitudes inconsistentes;
+ - payload truncado;
+-- metadata incompatible.
++- metadata incompatible;
++- codec desconocido cuando corresponde.
+ 
+-## Pruebas manuales recomendadas
++## Comparador
+ 
+-- texto altamente repetitivo;
+-- texto variado;
+-- JSON estructurado;
+-- imagen;
++El comparador usa el mismo archivo para cada tamaño seleccionado. Cada fila debe ser consistente con ejecutar individualmente ese mismo `N`.
++
++El menor contenedor observado se interpreta únicamente dentro del conjunto evaluado; no demuestra un óptimo global entre todos los valores enteros de 2 a 2048.
++
++## Fuentes reproducibles
++
++Se comprueba que una misma demostración genere los mismos bytes en ejecuciones repetidas.
++
++Los casos de formato real verifican propiedades estructurales de:
++
++- BMP sin compresión;
++- PNG;
++- JPEG;
+ - PDF;
+-- ZIP;
+-- datos pseudoaleatorios;
+-- archivos `.bitlab` antiguos sin SHA-256;
+-- archivos `.bitlab` nuevos con integridad.
++- ZIP con entradas DEFLATE.
++
++Las extensiones no se usan como sustituto de un formato binario válido.
++
++## Procesamiento
++
++Análisis, codificación, recuperación y comparación se ejecutan mediante Web Workers cuando corresponde. La cancelación termina el Worker activo.
++
++El uso de Worker no modifica la propiedad de round-trip ni elimina el límite de memoria derivado de cargar el archivo completo.
++
++## Gate antes de merge
++
++```bash
++pnpm test
++pnpm build
++powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/final-check.ps1
++```
++
++Los tres pasos deben terminar correctamente antes del merge final.
+diff --git a/docs/ACADEMIC_DEFENSE.md b/docs/ACADEMIC_DEFENSE.md
+new file mode 100644
+--- /dev/null
++++ b/docs/ACADEMIC_DEFENSE.md
+@@ -0,0 +1,195 @@
++# Guía de sustentación académica
++
++Esta guía resume los conceptos que deben poder explicarse y relacionarse con la implementación de BitLab.
++
++## 1. ¿Qué representa un archivo para BitLab?
++
++El motor recibe bytes. Un archivo de imagen, texto, PDF o ZIP termina siendo una secuencia binaria.
++
++La extensión y el MIME ayudan a presentar el archivo y se conservan como metadata, pero no cambian la forma en que el motor segmenta y analiza los bits.
++
++## 2. ¿Qué es el tamaño de palabra?
++
++`N` define cuántos bits forman un símbolo lógico.
++
++Con `N = 8` cada símbolo ocupa un byte. Con `N = 13`, `N = 64` o `N = 2048` los límites de símbolo ya no tienen por qué coincidir con límites de byte.
++
++Cambiar `N` cambia el alfabeto observado. Por eso las frecuencias y probabilidades deben calcularse otra vez.
++
++## 3. Segmentación no es compresión
++
++Segmentar significa decidir cómo se agrupan los bits en símbolos.
++
++No se reduce información por el hecho de pasar de bytes a palabras de `N` bits. La codificación de fuente aparece después, cuando se aprovechan las probabilidades de los símbolos.
++
++## 4. Entropía
++
++Para probabilidades `p(x_i)`:
++
++```text
++H(X) = -Σ p(x_i) log2 p(x_i)
++```
++
++`H(X)` se expresa en bit/símbolo y representa la información promedio de la fuente bajo el modelo observado.
++
++BitLab también muestra:
++
++```text
++N - H(X)
++```
++
++como redundancia estadística respecto a una representación fija de `N` bits por símbolo.
++
++No debe confundirse con el porcentaje de reducción real de un archivo.
++
++## 5. Huffman
++
++Huffman construye un código prefijo: ningún código válido es prefijo de otro. Esto permite decodificar la concatenación de códigos sin separadores.
++
++BitLab usa Huffman canónico. En lugar de almacenar el árbol completo, conserva información suficiente para reconstruir el mismo conjunto de códigos a partir de sus longitudes.
++
++Los símbolos frecuentes tienden a recibir códigos más cortos y los menos frecuentes códigos más largos.
++
++## 6. Longitud media y eficiencia
++
++La longitud media es:
++
++```text
++L̄ = Σ p(x_i) · l_i
++```
++
++donde `l_i` es la longitud del código asignado al símbolo.
++
++La eficiencia mostrada es:
++
++```text
++η = H(X) / L̄
++```
++
++La diferencia:
++
++```text
++L̄ - H(X)
++```
++
++permite observar cuánto se separa la longitud media del valor de entropía en ese experimento.
++
++## 7. Payload no es lo mismo que archivo final
++
++BitLab distingue:
++
++- representación fija de los símbolos;
++- bits emitidos por Huffman;
++- bytes del payload;
++- metadata del codebook;
++- metadata de integridad;
++- header y metadata general;
++- tamaño completo `.bitlab`.
++
++Puede ocurrir:
++
++```text
++payload Huffman < representación fija
++```
++
++pero al mismo tiempo:
++
++```text
++.bitlab > archivo original
++```
++
++porque el contenedor necesita información adicional para ser interpretable y reversible.
++
++## 8. ¿Qué es `.bitlab`?
++
++No es un archivo renombrado. El parser exige una estructura binaria propia.
++
++La firma principal es:
++
++```text
++BTLB
++```
++
++El contenedor almacena versión, codec, tamaño de palabra, padding, tamaño original, nombre, MIME, metadata y payload.
++
++RAW usa `codecId = 0` y Huffman usa `codecId = 1`.
++
++## 9. ¿Para qué sirve RAW?
++
++RAW es el caso de control.
++
++No intenta comprimir: conserva los bytes originales dentro del formato BitLab. Permite comprobar el costo estructural del contenedor y validar la reconstrucción independientemente de Huffman.
++
++## 10. Integridad SHA-256
++
++Los contenedores actuales pueden incluir una envoltura de metadata identificada como:
++
++```text
++BIMD
++```
++
++que guarda el SHA-256 del archivo original.
++
++Al recuperar:
++
++1. BitLab reconstruye los bytes.
++2. Calcula SHA-256 sobre los bytes restaurados.
++3. Compara el digest con el almacenado.
++
++Una coincidencia no demuestra autoría, legitimidad ni ausencia de malware. Demuestra que el digest calculado coincide con el valor almacenado.
++
++## 11. ¿Por qué Web Workers?
++
++Análisis, Huffman y restauración pueden recorrer grandes cantidades de datos. Ejecutarlos en el hilo principal puede congelar la interfaz.
++
++El Worker separa ese cálculo de React y permite mostrar progreso o cancelar la operación.
++
++El archivo todavía se carga completo mediante `File.arrayBuffer()`, por lo que Worker no significa procesamiento ilimitado ni streaming.
++
++## 12. Comparador de tamaño de palabra
++
++Para el mismo archivo se repite el experimento usando varios valores de `N`.
++
++Cambiar `N` puede:
++
++- reducir la cantidad total de símbolos;
++- aumentar o reducir el número de símbolos distintos;
++- modificar la distribución;
++- cambiar el codebook;
++- modificar payload, metadata y tiempo de procesamiento.
++
++BitLab puede resaltar el menor contenedor entre los casos ejecutados, pero eso no demuestra que sea el mejor `N` posible entre todos los enteros de 2 a 2048.
++
++## 13. Fuentes reproducibles
++
++Las demostraciones usan siempre los mismos bytes para que dos ejecuciones sean comparables.
++
++Los casos incluyen texto repetitivo, texto variado, JSON, datos pseudoaleatorios y formatos válidos BMP, PNG, JPEG, PDF y ZIP.
++
++Los resultados no se deciden por la extensión. Las hipótesis se contrastan con las métricas calculadas.
++
++## Preguntas que conviene poder responder
++
++### ¿Por qué no usaron `Number` para una palabra de 2048 bits?
++
++Porque JavaScript `Number` no puede representar exactamente enteros arbitrarios de ese tamaño. El flujo principal se conserva como bytes y operaciones de bits.
++
++### ¿Por qué un archivo ya comprimido puede crecer?
++
++Porque puede conservar poca redundancia adicional y, además, `.bitlab` necesita header, metadata, codebook e integridad.
++
++### ¿Por qué no basta con cambiar la extensión a `.bitlab`?
++
++Porque un formato real depende de su estructura interna. El parser valida firma, versión, longitudes, codec y metadata.
++
++### ¿SHA-256 garantiza que el archivo es seguro?
++
++No. Se usa para comprobar coincidencia del digest del archivo reconstruido con el valor almacenado.
++
++### ¿Por qué no existe un tamaño de palabra óptimo universal?
++
++Porque cada `N` redefine los símbolos y, por tanto, cambia la distribución estadística y el costo de representar el codebook.
++
++### ¿Qué limitación técnica importante conserva BitLab?
++
++El archivo completo y el resultado se materializan en memoria. Web Workers evitan bloquear la UI, pero no convierten el proceso en streaming.
+diff --git a/docs/FINAL_CHECKLIST.md b/docs/FINAL_CHECKLIST.md
+new file mode 100644
+--- /dev/null
++++ b/docs/FINAL_CHECKLIST.md
+@@ -0,0 +1,60 @@
++# Checklist final
++
++## Correctitud
++
++- [ ] `pnpm test` termina sin errores.
++- [ ] `pnpm build` termina sin errores.
++- [ ] `git diff --check` no reporta whitespace inválido.
++- [ ] RAW puede crear y recuperar un `.bitlab`.
++- [ ] Huffman puede crear y recuperar un `.bitlab`.
++- [ ] SHA-256 coincide después de una recuperación correcta.
++- [ ] Un digest alterado se reporta como discrepancia.
++
++## Tamaños de palabra
++
++- [ ] Se prueban tamaños múltiplos y no múltiplos de 8.
++- [ ] Se prueba el límite de 2048 bits.
++- [ ] El padding se elimina correctamente al reconstruir.
++- [ ] El comparador usa exactamente el mismo archivo para todos los valores de `N`.
++
++## Métricas
++
++- [ ] Entropía se expresa en bit/símbolo.
++- [ ] Redundancia `N - H(X)` no se presenta como compresión real.
++- [ ] Longitud media se distingue de entropía.
++- [ ] Payload se distingue del tamaño completo `.bitlab`.
++- [ ] El costo de codebook y metadata permanece visible.
++
++## Formatos
++
++- [ ] `.bitlab` se valida por estructura y no por extensión.
++- [ ] Los ejemplos BMP, PNG, JPEG, PDF y ZIP son formatos binarios válidos.
++- [ ] La UI no afirma que un tipo de archivo comprime bien o mal solo por su extensión.
++
++## Integridad
++
++- [ ] La documentación explica qué verifica SHA-256.
++- [ ] No se presenta SHA-256 como certificación de seguridad, autenticidad o ausencia de malware.
++- [ ] Se mantiene compatibilidad con contenedores anteriores sin digest almacenado.
++
++## UX y rendimiento
++
++- [ ] Las operaciones pesadas no bloquean deliberadamente el hilo principal.
++- [ ] Progreso y cancelación funcionan en las operaciones que usan Worker.
++- [ ] La documentación reconoce que el archivo completo se materializa en memoria.
++- [ ] Las fuentes reproducibles generan siempre los mismos bytes.
++
++## Documentación
++
++- [ ] README describe las funcionalidades actuales.
++- [ ] No quedan documentos históricos con nombres `PHASE_*`.
++- [ ] No queda el roadmap interno en la entrega.
++- [ ] La guía de sustentación coincide con la implementación.
++- [ ] No se usan afirmaciones como “100% seguro” o “compresión garantizada”.
++
++## Despliegue
++
++- [ ] La versión desplegada corresponde al commit que se entrega.
++- [ ] La página carga sin errores de consola relevantes.
++- [ ] La codificación y recuperación se prueban en producción.
++- [ ] Las demostraciones y el comparador funcionan en producción.
+diff --git a/scripts/final-check.ps1 b/scripts/final-check.ps1
+new file mode 100644
+--- /dev/null
++++ b/scripts/final-check.ps1
+@@ -0,0 +1,101 @@
++$ErrorActionPreference = "Stop"
++
++function Invoke-CheckedCommand {
++  param(
++    [Parameter(Mandatory = $true)][string]$Label,
++    [Parameter(Mandatory = $true)][scriptblock]$Command
++  )
++
++  Write-Host ""
++  Write-Host "=== $Label ===" -ForegroundColor Cyan
++  & $Command
++
++  if ($LASTEXITCODE -ne 0) {
++    throw "$Label falló con código $LASTEXITCODE."
++  }
++
++  Write-Host "OK  $Label" -ForegroundColor Green
++}
++
++Invoke-CheckedCommand "git diff --check" {
++  git diff --check
++}
++
++Invoke-CheckedCommand "pnpm test" {
++  pnpm test
++}
++
++Invoke-CheckedCommand "pnpm build" {
++  pnpm build
++}
++
++Write-Host ""
++Write-Host "=== Documentación final ===" -ForegroundColor Cyan
++
++$legacyFiles = @(
++  "docs/PHASE_00_SCOPE.md",
++  "docs/PHASE_02_CONTAINER.md",
++  "docs/PHASE_02B_BLENDY_AUDIT.md",
++  "docs/PROJECT_PLAN.md"
++)
++
++foreach ($path in $legacyFiles) {
++  if (Test-Path $path) {
++    throw "Todavía existe documentación interna/obsoleta: $path"
++  }
++}
++
++$requiredFiles = @(
++  "README.md",
++  "docs/SCOPE.md",
++  "docs/CONTAINER_FORMAT.md",
++  "docs/HUFFMAN_CODEC.md",
++  "docs/CODING_METRICS.md",
++  "docs/INTEGRITY.md",
++  "docs/PROCESSING_ARCHITECTURE.md",
++  "docs/WORD_SIZE_COMPARISON.md",
++  "docs/DEMO_SOURCES.md",
++  "docs/RESULT_INTERPRETATION.md",
++  "docs/REAL_FORMAT_EXAMPLES.md",
++  "docs/VALIDATION.md",
++  "docs/ACADEMIC_DEFENSE.md",
++  "docs/FINAL_CHECKLIST.md"
++)
++
++foreach ($path in $requiredFiles) {
++  if (-not (Test-Path $path)) {
++    throw "Falta un archivo requerido para el cierre: $path"
++  }
++}
++
++$forbiddenPatterns = @(
++  "100%\s+segur",
++  "compresi[oó]n\s+garantizada",
++  "certificad[oa]\s+como\s+segur"
++)
++
++$searchFiles = @("README.md")
++$searchFiles += Get-ChildItem -Path "docs", "src" -Recurse -File |
++  Where-Object {
++    $_.FullName -notmatch "[\\/](node_modules|dist)[\\/]" -and
++    $_.Extension -in @(".md", ".astro", ".tsx", ".ts")
++  } |
++  Select-Object -ExpandProperty FullName
++
++foreach ($pattern in $forbiddenPatterns) {
++  $matches = Select-String -Path $searchFiles -Pattern $pattern -CaseSensitive:$false
++  if ($matches) {
++    $matches | ForEach-Object { Write-Host $_ }
++    throw "Se encontró una afirmación prohibida o excesiva: $pattern"
++  }
++}
++
++Write-Host "OK  documentación y afirmaciones" -ForegroundColor Green
++
++Write-Host ""
++Write-Host "=== Estado Git ===" -ForegroundColor Cyan
++git status --short
++
++Write-Host ""
++Write-Host "BitLab superó el chequeo automático final." -ForegroundColor Green
++Write-Host "Aún deben realizarse las verificaciones manuales de docs/FINAL_CHECKLIST.md."
+diff --git a/docs/PHASE_00_SCOPE.md b/docs/PHASE_00_SCOPE.md
+deleted file mode 100644
+--- a/docs/PHASE_00_SCOPE.md
++++ /dev/null
+@@ -1,31 +0,0 @@
+-# Fase 0 — Alcance y modelo inicial
+-
+-## Interpretación provisional
+-
+-Hasta confirmar el enunciado exacto con el profesor, BitLab interpreta "de 2 bits hasta 2048 bits" como el **tamaño de palabra o símbolo binario** usado por el codificador.
+-
+-Esto no implica que la segmentación sea por sí misma compresión o codificación de fuente.
+-
+-## Representación exacta
+-
+-- Contenido binario: `Uint8Array` + operaciones de bits.
+-- No se usa `Number` para guardar palabras grandes.
+-- `number` sí podrá usarse para probabilidades, entropía y métricas reales.
+-
+-## Propiedad fundamental
+-
+-Antes de implementar Huffman debe cumplirse:
+-
+-`reassemble(segment(file, N)) === file`
+-
+-para tamaños de palabra válidos, incluidos tamaños no múltiplos de 8 y el límite de 2048 bits.
+-
+-## Exclusiones de esta fase
+-
+-Todavía no hay:
+-- Huffman;
+-- compresión;
+-- formato codificado descargable;
+-- entropía;
+-- SHA-256;
+-- procesamiento por chunks o Web Worker.
+diff --git a/docs/PHASE_02_CONTAINER.md b/docs/PHASE_02_CONTAINER.md
+deleted file mode 100644
+--- a/docs/PHASE_02_CONTAINER.md
++++ /dev/null
+@@ -1,68 +0,0 @@
+-# Fase 2 — Contenedor BitLab v1
+-
+-## Objetivo
+-
+-Crear el primer formato de intercambio reversible de BitLab. Esta fase NO implementa compresión.
+-El codec `RAW` conserva los bytes originales y añade un header binario con la información
+-necesaria para identificar y reconstruir el archivo.
+-
+-## Formato fijo v1
+-
+-Todos los enteros multibyte se almacenan en big-endian.
+-
+-| Offset | Bytes | Campo |
+-|---:|---:|---|
+-| 0 | 4 | Magic ASCII `BTLB` |
+-| 4 | 1 | Version = 1 |
+-| 5 | 1 | Codec = 0 (`RAW`) |
+-| 6 | 2 | Word size (2–2048 bits) |
+-| 8 | 2 | Padding lógico |
+-| 10 | 2 | Flags reservados |
+-| 12 | 8 | Tamaño original (`uint64`) |
+-| 20 | 2 | Longitud nombre UTF-8 |
+-| 22 | 2 | Longitud MIME UTF-8 |
+-| 24 | 4 | Longitud metadata del codec |
+-| 28 | 8 | Longitud payload (`uint64`) |
+-
+-Después del header fijo de 36 bytes:
+-
+-1. nombre UTF-8;
+-2. MIME type UTF-8;
+-3. metadata del codec;
+-4. payload.
+-
+-## Precisión numérica
+-
+-Los tamaños persistidos se escriben como `uint64` mediante `BigInt`/`DataView.setBigUint64`.
+-Solo se convierten a `number` cuando es necesario indexar un `ArrayBuffer`, y se rechaza un valor
+-que exceda `Number.MAX_SAFE_INTEGER`.
+-
+-Los datos del archivo nunca se convierten a un entero JavaScript grande.
+-
+-## Codec RAW
+-
+-`RAW` permite validar el contenedor antes de añadir Huffman:
+-
+-`archivo -> contenedor RAW -> parser -> archivo`
+-
+-Debe cumplirse igualdad byte a byte. El tamaño `.bitlab` será mayor que el original por el header;
+-esto no debe interpretarse como un intento fallido de compresión.
+-
+-## Vista previa
+-
+-La UI puede interpretar el MIME/extensión únicamente para representación visual:
+-
+-- imágenes: preview local mediante `URL.createObjectURL`;
+-- PDF, ZIP, TXT, audio, video, documentos y binarios: icono/tarjeta de tipo.
+-
+-Esta clasificación NO modifica el motor binario ni el payload.
+-
+-## Gate
+-
+-- tests de round-trip para 2, 13 y 2048 bits;
+-- parser rechaza magic inválido;
+-- parser rechaza truncamiento;
+-- nombre UTF-8 y MIME preservados;
+-- `/codificar` descarga `.bitlab`;
+-- `/decodificar` recupera el archivo RAW;
+-- preview de imagen no sube el archivo a un servidor.
+diff --git a/docs/PHASE_02B_BLENDY_AUDIT.md b/docs/PHASE_02B_BLENDY_AUDIT.md
+deleted file mode 100644
+--- a/docs/PHASE_02B_BLENDY_AUDIT.md
++++ /dev/null
+@@ -1,38 +0,0 @@
+-# Fase 2B — Auditoría visual con Blendy
+-
+-## Propósito
+-
+-La aplicación ya calculaba correctamente bits, palabras y padding. Esta iteración hace que esos
+-resultados sean auditables desde la UI sin convertir la página en un documento largo.
+-
+-Cada resultado se presenta como una tarjeta compacta. Al abrirla, Blendy transforma visualmente
+-la tarjeta en un diálogo con:
+-
+-- fórmula;
+-- sustitución usando el archivo actual;
+-- explicación breve;
+-- cuando aplica, una forma externa de comprobar el dato.
+-
+-## Qué se explica
+-
+-1. Tamaño original en bytes (`File.size`).
+-2. Bits originales (`bytes × 8`).
+-3. Palabras (`ceil(bits / N)`).
+-4. Padding (`palabras × N - bits`).
+-5. En `/codificar`, después de generar el contenedor, composición exacta del tamaño `.bitlab` RAW.
+-
+-## Nota sobre editores de texto
+-
+-Un `.bitlab` es binario. El contador de caracteres de un editor de texto no equivale a:
+-
+-- bytes del archivo;
+-- palabras lógicas de BitLab;
+-- símbolos de N bits.
+-
+-Para comparar tamaños se debe consultar el tamaño en bytes del archivo.
+-
+-## Blendy
+-
+-Se usa la librería `blendy` únicamente para la transición entre la tarjeta compacta y el diálogo
+-expandido. La lógica matemática sigue estando en el core TypeScript; Blendy no participa en los
+-cálculos.
+diff --git a/docs/PROJECT_PLAN.md b/docs/PROJECT_PLAN.md
+deleted file mode 100644
+--- a/docs/PROJECT_PLAN.md
++++ /dev/null
+@@ -1,15 +0,0 @@
+-# BitLab — Roadmap
+-
+-0. Alcance y especificación.
+-1. Bit Engine: lectura, segmentación 2–2048, padding y reconstrucción.
+-2. Contenedor BitLab.
+-3. Estadística de la fuente: frecuencia, probabilidad y entropía.
+-4. Huffman reversible.
+-5. Métricas: longitud media, eficiencia, redundancia y compresión.
+-6. Integridad y decodificación: SHA-256 y round-trip.
+-7. Web Workers y archivos grandes.
+-8. Comparador de tamaños de palabra.
+-9. Ejemplos guiados y UX.
+-10. Pulido visual.
+-11. Validación académica.
+-12. Informe, presentación y Vercel.

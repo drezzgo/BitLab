@@ -1,0 +1,483 @@
+diff --git a/src/core/demo-sources/index.ts b/src/core/demo-sources/index.ts
+new file mode 100644
+--- /dev/null
++++ b/src/core/demo-sources/index.ts
+@@ -0,0 +1,127 @@
++export type DemoSourceId = 'repetitive' | 'varied-text' | 'structured' | 'random';
++
++export interface DemoSourceDefinition {
++  id: DemoSourceId;
++  title: string;
++  fileName: string;
++  mimeType: string;
++  description: string;
++  hypothesis: string;
++}
++
++export interface GeneratedDemoSource {
++  definition: DemoSourceDefinition;
++  bytes: Uint8Array;
++}
++
++export const DEMO_SOURCES: readonly DemoSourceDefinition[] = [
++  {
++    id: 'repetitive',
++    title: 'Texto repetitivo',
++    fileName: 'texto-repetitivo.txt',
++    mimeType: 'text/plain',
++    description: 'Patrones cortos que se repiten miles de veces.',
++    hypothesis: 'Esperamos una distribución concentrada en pocos símbolos y oportunidades claras para que Huffman asigne códigos cortos a los más frecuentes.',
++  },
++  {
++    id: 'varied-text',
++    title: 'Texto variado',
++    fileName: 'texto-variado.txt',
++    mimeType: 'text/plain',
++    description: 'Texto determinista con vocabulario, números y estructuras más diversas.',
++    hypothesis: 'Esperamos una distribución menos concentrada que en el texto repetitivo. El resultado permite observar cómo cambia la entropía al aumentar la diversidad de la fuente.',
++  },
++  {
++    id: 'structured',
++    title: 'JSON estructurado',
++    fileName: 'telemetria-estructurada.json',
++    mimeType: 'application/json',
++    description: 'Registros de telemetría con claves y valores que siguen patrones.',
++    hypothesis: 'La sintaxis de JSON y los campos repetidos introducen estructura. Queremos comprobar cuánto de ese patrón resulta aprovechable para cada tamaño de palabra.',
++  },
++  {
++    id: 'random',
++    title: 'Datos pseudoaleatorios',
++    fileName: 'datos-pseudoaleatorios.bin',
++    mimeType: 'application/octet-stream',
++    description: '96 KiB generados con una semilla fija para repetir exactamente el experimento.',
++    hypothesis: 'Esperamos una distribución más uniforme que en las fuentes textuales y, por tanto, menos ventaja para Huffman. La medición real debe confirmar cuánto cambia.',
++  },
++] as const;
++
++const textEncoder = new TextEncoder();
++
++function definitionFor(id: DemoSourceId): DemoSourceDefinition {
++  const definition = DEMO_SOURCES.find((candidate) => candidate.id === id);
++  if (!definition) throw new Error(`Fuente de demostración desconocida: ${id}`);
++  return definition;
++}
++
++function makeDeterministicRandomBytes(length: number): Uint8Array {
++  const bytes = new Uint8Array(length);
++  let state = 0x12345678;
++
++  for (let index = 0; index < length; index += 1) {
++    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
++    bytes[index] = state & 0xff;
++  }
++
++  return bytes;
++}
++
++function makeVariedText(): string {
++  const sentences = [
++    'Una red telemática transporta datos entre servicios con requisitos distintos de latencia y confiabilidad.',
++    'La entropía describe la incertidumbre promedio de una fuente a partir de la probabilidad de sus símbolos.',
++    'Huffman asigna palabras de código más cortas a símbolos frecuentes sin perder la posibilidad de decodificación exacta.',
++    'Un archivo puede interpretarse como una secuencia de bits sin depender de su extensión o del programa que lo creó.',
++    'Cambiar el tamaño de palabra modifica el alfabeto observado y puede alterar frecuencias, entropía, metadata y tamaño final.',
++    'Los formatos previamente comprimidos pueden conservar poca redundancia adicional para una segunda etapa de codificación.',
++    'El contenedor BitLab conserva información suficiente para reconstruir los bytes y verificar su integridad con SHA-256.',
++    'Una medición útil distingue el tamaño del payload codificado del tamaño completo del contenedor que también incluye metadata.',
++  ];
++
++  return Array.from({ length: 1024 }, (_, index) => {
++    const sentence = sentences[index % sentences.length];
++    const node = (index * 7) % 31;
++    const sample = (index * 13) % 997;
++    return `${String(index + 1).padStart(4, '0')} | nodo-${node.toString().padStart(2, '0')} | muestra-${sample.toString().padStart(3, '0')} | ${sentence}`;
++  }).join('\n');
++}
++
++export function generateDemoSource(id: DemoSourceId): GeneratedDemoSource {
++  const definition = definitionFor(id);
++
++  if (id === 'repetitive') {
++    return {
++      definition,
++      bytes: textEncoder.encode('BITLAB|UD|TEORIA-DE-LA-INFORMACION|'.repeat(4096)),
++    };
++  }
++
++  if (id === 'varied-text') {
++    return {
++      definition,
++      bytes: textEncoder.encode(makeVariedText()),
++    };
++  }
++
++  if (id === 'structured') {
++    const records = Array.from({ length: 700 }, (_, index) => ({
++      id: index,
++      sensor: `nodo-${index % 8}`,
++      state: index % 3 === 0 ? 'activo' : 'espera',
++      value: (index % 17) * 5,
++    }));
++
++    return {
++      definition,
++      bytes: textEncoder.encode(JSON.stringify(records, null, 2)),
++    };
++  }
++
++  return {
++    definition,
++    bytes: makeDeterministicRandomBytes(96 * 1024),
++  };
++}
+diff --git a/tests/demo-sources/demo-sources.test.ts b/tests/demo-sources/demo-sources.test.ts
+new file mode 100644
+--- /dev/null
++++ b/tests/demo-sources/demo-sources.test.ts
+@@ -0,0 +1,37 @@
++import { describe, expect, it } from 'vitest';
++import { DEMO_SOURCES, generateDemoSource } from '../../src/core/demo-sources';
++
++describe('fuentes reproducibles', () => {
++  it('expone los cuatro casos pedagógicos sintéticos', () => {
++    expect(DEMO_SOURCES.map((source) => source.id)).toEqual([
++      'repetitive',
++      'varied-text',
++      'structured',
++      'random',
++    ]);
++  });
++
++  it('genera exactamente los mismos bytes en ejecuciones repetidas', () => {
++    for (const source of DEMO_SOURCES) {
++      const first = generateDemoSource(source.id);
++      const second = generateDemoSource(source.id);
++
++      expect(first.definition).toEqual(source);
++      expect(first.bytes.length).toBeGreaterThan(0);
++      expect(second.bytes).toEqual(first.bytes);
++    }
++  });
++
++  it('conserva el tamaño del caso pseudoaleatorio existente', () => {
++    const random = generateDemoSource('random');
++    expect(random.bytes).toHaveLength(96 * 1024);
++  });
++
++  it('distingue el texto variado del caso altamente repetitivo', () => {
++    const repetitive = generateDemoSource('repetitive');
++    const varied = generateDemoSource('varied-text');
++
++    expect(varied.bytes).not.toEqual(repetitive.bytes);
++    expect(new TextDecoder().decode(varied.bytes)).toContain('entropía');
++  });
++});
+diff --git a/src/components/react/BitLabWorkbench.tsx b/src/components/react/BitLabWorkbench.tsx
+--- a/src/components/react/BitLabWorkbench.tsx
++++ b/src/components/react/BitLabWorkbench.tsx
+@@ -1,6 +1,7 @@
+ import { useEffect, useMemo, useRef, useState } from 'react';
+ import { calculateSegmentation, MAX_WORD_SIZE_BITS, MIN_WORD_SIZE_BITS } from '../../core/bits';
+ import type { HuffmanContainerMetrics } from '../../core/container';
++import { DEMO_SOURCES, generateDemoSource, type DemoSourceId } from '../../core/demo-sources';
+ import type { BitLabWorkerResult } from '../../workers/protocol';
+ import CalculationAuditCards from './CalculationAuditCards';
+ import CodingMetricsPanel from './CodingMetricsPanel';
+@@ -31,40 +32,6 @@ function formatBytes(bytes: number): string {
+   return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 2)} ${units[index]}`;
+ }
+ 
+-function makeDeterministicRandomBytes(length: number): Uint8Array {
+-  const bytes = new Uint8Array(length);
+-  let state = 0x12345678;
+-  for (let index = 0; index < length; index += 1) {
+-    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+-    bytes[index] = state & 0xff;
+-  }
+-  return bytes;
+-}
+-
+-function createDemoFile(kind: 'repetitive' | 'structured' | 'random'): File {
+-  if (kind === 'repetitive') {
+-    const text = 'BITLAB|UD|TEORIA-DE-LA-INFORMACION|'.repeat(4096);
+-    return new File([text], 'texto-repetitivo.txt', { type: 'text/plain' });
+-  }
+-
+-  if (kind === 'structured') {
+-    const records = Array.from({ length: 700 }, (_, index) => ({
+-      id: index,
+-      sensor: `nodo-${index % 8}`,
+-      state: index % 3 === 0 ? 'activo' : 'espera',
+-      value: (index % 17) * 5,
+-    }));
+-    return new File([JSON.stringify(records, null, 2)], 'telemetria-estructurada.json', {
+-      type: 'application/json',
+-    });
+-  }
+-
+-  const bytes = makeDeterministicRandomBytes(96 * 1024);
+-  return new File([toArrayBuffer(bytes)], 'datos-pseudoaleatorios.bin', {
+-    type: 'application/octet-stream',
+-  });
+-}
+-
+ interface DecodeResult {
+   restoredFile: File;
+   wordSizeBits: number;
+@@ -86,6 +51,7 @@ export default function BitLabWorkbench() {
+   const [mode, setMode] = useState<Mode>('encode');
+   const [codec, setCodec] = useState<EncodeCodec>('huffman');
+   const [file, setFile] = useState<File | null>(null);
++  const [selectedDemoId, setSelectedDemoId] = useState<DemoSourceId | null>(null);
+   const [wordSizeBits, setWordSizeBits] = useState(8);
+   const [containerBytes, setContainerBytes] = useState<Uint8Array | null>(null);
+   const [huffmanMetrics, setHuffmanMetrics] = useState<HuffmanContainerMetrics | null>(null);
+@@ -135,13 +101,23 @@ export default function BitLabWorkbench() {
+ 
+   function changeMode(next: Mode) {
+     setMode(next);
++    setSelectedDemoId(null);
+     setFile(null);
+     const url = new URL(window.location.href);
+     url.searchParams.set('modo', next === 'encode' ? 'codificar' : 'decodificar');
+     history.replaceState({}, '', `${url.pathname}${url.search}#herramienta`);
+   }
+ 
+-  function chooseDemo(kind: 'repetitive' | 'structured' | 'random') {
++  function chooseFile(nextFile: File | null) {
++    setSelectedDemoId(null);
++    setFile(nextFile);
++  }
++
++  function chooseDemo(kind: DemoSourceId) {
++    const source = generateDemoSource(kind);
+     setMode('encode');
+-    setFile(createDemoFile(kind));
++    setSelectedDemoId(kind);
++    setFile(new File([toArrayBuffer(source.bytes)], source.definition.fileName, {
++      type: source.definition.mimeType,
++    }));
+   }
+@@ -236,6 +215,9 @@ export default function BitLabWorkbench() {
+     setProgress(null);
+   }
+ 
++  const selectedDemo = selectedDemoId
++    ? DEMO_SOURCES.find((demo) => demo.id === selectedDemoId) ?? null
++    : null;
+   const sizeDifference = mode === 'encode' && file && containerBytes
+     ? containerBytes.length - file.size
+     : null;
+@@ -269,16 +251,33 @@ export default function BitLabWorkbench() {
+         <>
+           <details className="demo-sources">
+             <summary>Probar con fuentes reproducibles</summary>
+-            <div>
+-              <button type="button" onClick={() => chooseDemo('repetitive')}>Texto repetitivo</button>
+-              <button type="button" onClick={() => chooseDemo('structured')}>JSON estructurado</button>
+-              <button type="button" onClick={() => chooseDemo('random')}>Datos pseudoaleatorios</button>
++            <p className="demo-sources-intro">
++              Compara fuentes con estructuras distintas sin cambiar el motor de análisis. Cada ejemplo
++              genera siempre los mismos bytes para que el experimento pueda repetirse.
++            </p>
++            <div className="demo-source-grid">
++              {DEMO_SOURCES.map((demo) => (
++                <button
++                  key={demo.id}
++                  type="button"
++                  className={selectedDemoId === demo.id ? 'active' : ''}
++                  aria-pressed={selectedDemoId === demo.id}
++                  onClick={() => chooseDemo(demo.id)}
++                >
++                  <strong>{demo.title}</strong>
++                  <span>{demo.description}</span>
++                </button>
++              ))}
+             </div>
+-            <p>
+-              Los tres ejemplos se generan localmente y permiten contrastar una fuente muy redundante,
+-              una fuente estructurada y una fuente con distribución más uniforme.
+-            </p>
++            {selectedDemo && file && (
++              <div className="demo-hypothesis">
++                <span>QUÉ ESPERAMOS OBSERVAR</span>
++                <p>{selectedDemo.hypothesis}</p>
++                <small>{file.name} · {formatBytes(file.size)}</small>
++              </div>
++            )}
++            <p className="demo-sources-note">La hipótesis orienta la observación; las métricas reales las calcula BitLab con el mismo flujo usado para cualquier archivo.</p>
+           </details>
+ 
+           <div className="workflow-grid">
+-            <FilePickerPreview file={file} onFile={setFile} />
++            <FilePickerPreview file={file} onFile={chooseFile} />
+@@ -365,7 +363,7 @@ export default function BitLabWorkbench() {
+           <div className="workflow-grid">
+             <FilePickerPreview
+               file={file}
+-              onFile={setFile}
++              onFile={chooseFile}
+               accept=".bitlab,application/x-bitlab"
+               hint="Selecciona un contenedor .bitlab generado por la herramienta"
+             />
+diff --git a/src/styles/global.css b/src/styles/global.css
+--- a/src/styles/global.css
++++ b/src/styles/global.css
+@@ -1,43 +1,99 @@
+ /* reproducible sources */
+ .demo-sources {
+   margin: 16px 0;
+   border: 1px solid var(--line);
+   border-radius: 10px;
+   background: #09090d;
+ }
+ .demo-sources summary {
+   padding: 12px 14px;
+   color: var(--ink);
+   font-size: 12px;
+   font-weight: 800;
+   cursor: pointer;
+ }
+ .demo-sources[open] summary { border-bottom: 1px solid var(--line); }
+-.demo-sources > div {
+-  padding: 12px 14px 6px;
+-  display: flex;
+-  flex-wrap: wrap;
+-  gap: 8px;
++.demo-sources-intro {
++  margin: 0;
++  padding: 12px 14px 0;
++  color: var(--muted);
++  font-size: 11px;
++  line-height: 1.6;
++}
++.demo-source-grid {
++  display: grid;
++  grid-template-columns: repeat(4, minmax(0, 1fr));
++  gap: 8px;
++  padding: 12px 14px 8px;
+ }
+-.demo-sources button {
+-  padding: 8px 10px;
++.demo-source-grid button {
++  display: flex;
++  min-height: 92px;
++  flex-direction: column;
++  gap: 6px;
++  padding: 10px;
+   border: 1px solid var(--line-strong);
+   border-radius: 6px;
+   background: var(--surface);
+   color: var(--ink);
++  text-align: left;
+   cursor: pointer;
+   transition: .16s ease;
+ }
+-.demo-sources button:hover {
++.demo-source-grid button:hover,
++.demo-source-grid button.active {
+   border-color: var(--ud-gold);
+-  color: var(--neon-gold);
+   transform: translateY(-1px);
+ }
+-.demo-sources p {
++.demo-source-grid button.active {
++  box-shadow: 0 0 18px rgba(180,151,57,.08);
++}
++.demo-source-grid strong {
++  color: var(--ink);
++  font-size: 12px;
++}
++.demo-source-grid button.active strong { color: var(--neon-gold); }
++.demo-source-grid span {
++  color: var(--muted);
++  font-size: 10px;
++  line-height: 1.45;
++}
++.demo-hypothesis {
++  margin: 4px 14px 8px;
++  padding: 10px 12px;
++  border: 1px solid var(--line);
++  border-left: 3px solid var(--ud-gold);
++  border-radius: 7px;
++  background: #08080b;
++}
++.demo-hypothesis > span {
++  color: var(--neon-gold);
++  font-size: 9px;
++  font-weight: 800;
++  letter-spacing: .08em;
++}
++.demo-hypothesis p {
++  margin: 5px 0 6px;
++  color: var(--ink);
++  font-size: 11px;
++  line-height: 1.55;
++}
++.demo-hypothesis small {
++  color: var(--muted);
++  font-size: 9px;
++}
++.demo-sources-note {
+   margin: 0;
+-  padding: 4px 14px 12px;
++  padding: 4px 14px 12px;
+   color: var(--muted);
+-  font-size: 11px;
++  font-size: 10px;
++  line-height: 1.5;
++}
++@media (max-width: 900px) {
++  .demo-source-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
++}
++@media (max-width: 560px) {
++  .demo-source-grid { grid-template-columns: 1fr; }
+ }
+ 
+ /* worker controls */
+diff --git a/docs/VALIDATION.md b/docs/VALIDATION.md
+--- a/docs/VALIDATION.md
++++ b/docs/VALIDATION.md
+@@ -43,6 +43,7 @@ Se comprueba rechazo de:
+ ## Pruebas manuales recomendadas
+ 
+ - texto altamente repetitivo;
++- texto variado;
+ - JSON estructurado;
+ - imagen;
+ - PDF;
+diff --git a/docs/DEMO_SOURCES.md b/docs/DEMO_SOURCES.md
+new file mode 100644
+--- /dev/null
++++ b/docs/DEMO_SOURCES.md
+@@ -0,0 +1,30 @@
++# Fuentes reproducibles
++
++BitLab incluye fuentes sintéticas generadas localmente para repetir experimentos con los mismos bytes de entrada. Su objetivo es facilitar la comparación entre distribuciones distintas sin depender de archivos externos.
++
++## Casos incluidos
++
++| Fuente | Propósito |
++| --- | --- |
++| Texto repetitivo | Observar una fuente con patrones muy concentrados y alta repetición. |
++| Texto variado | Contrastar el caso repetitivo con vocabulario, números y estructuras más diversas. |
++| JSON estructurado | Observar patrones introducidos por claves, sintaxis y valores recurrentes. |
++| Datos pseudoaleatorios | Aproximarse a una distribución más uniforme mediante un generador determinista. |
++
++Las descripciones son hipótesis cualitativas, no resultados precalculados. Entropía, frecuencias, longitud media, eficiencia, payload, metadata y tamaño final se obtienen siempre mediante el mismo core usado para cualquier archivo cargado por el usuario.
++
++## Reproducibilidad
++
++Cada identificador de fuente produce exactamente la misma secuencia de bytes en ejecuciones repetidas. En particular, el caso pseudoaleatorio usa una semilla fija; no usa `Math.random()`.
++
++Esto permite comparar tamaños de palabra distintos sin introducir cambios accidentales en la entrada.
++
++## Interpretación
++
++Los ejemplos no deben presentarse como reglas universales. Una fuente repetitiva suele ofrecer más redundancia explotable que una fuente cercana a una distribución uniforme, pero BitLab debe mostrar el resultado medido para el tamaño de palabra seleccionado.
++
++Del mismo modo, una reducción del payload Huffman no garantiza que el contenedor `.bitlab` completo sea menor que el archivo original, porque el formato también almacena header y metadata.
++
++## Casos con formatos reales
++
++PNG, JPEG, PDF, ZIP y otros formatos se evalúan como archivos reales mediante la misma herramienta. No se simulan cambiando únicamente la extensión de un buffer. Esto evita atribuir propiedades del formato a datos que no cumplen su estructura binaria.

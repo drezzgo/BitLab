@@ -1,0 +1,173 @@
+export type RealFormatFixtureId = 'png' | 'jpeg' | 'pdf' | 'zip';
+
+const PNG_BASE64 = `
+iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAB5klEQVR4nO3bsU3EQBBA0bXuAkQRxMTERFcCBRG4HIKriDqI6eDE
+OuDb8rMcWk+yfjajWb5f38bMs67P1zH+/t4+f/gP38uUP8Z4mvv8MvcDZ/P/IQD/0SNA7AsQ+wLEvgCxL0DsCxD7AsS+ALEvQOwL
+EPsCxL4AsS9A7C8vX+9T8+v1PjeevX3MzcfP5l/3Nh8/m78hwNzn/MePALEvQOwLEPsCxL4AsS9A7AsQ+wLEvgCxL0DsCxD7AsS+
+ALG/uA9offcBsW8lGfsCxL4AsS9A7AsQ+wLEvgCxL0DsCxD7AsS+ALEvQOwLEPsCxL77gNjfsBE79vx9b76VZOwLEPsCxL4AsS9A
+7AsQ+wLEvgCxL0DsCxD7AsS+ALEvQOwLEPvuA2LffUDsW0nGvgCxL0DsCxD7AsS+ALEvQOwLEPsCxL4AsS9A7AsQ+wLEvgCx7z4g
+9jdsxI49f9+bbyUZ+wLEvgCxL0DsCxD7AsS+ALEvQOwLEPsCxL4AsS9A7AsQ+wLEvvuA2HcfEPtWkrEvQOwLEPsCxL4AsS9A7AsQ
++wLEvgCxL0DsCxD7AsS+ALEvQOy7D4j9DRuxY8/f9+ZbSca+ALEvQOwLEPsCxL4AsS9A7AsQ+wLEvgCxL0DsCxD7AsS+ALH/C8BZ
+kQk9z02jAAAAAElFTkSuQmCC
+`.replace(/\s+/g, '');
+
+const JPEG_BASE64 = `
+/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQUGBgYHCQ4JCQgICRINDQoOFRIWFhUSFBQXGiEcFxgfGRQUHScdHyIj
+JSUlFhwpLCgkKyEkJST/2wBDAQYGBgkICREJCREkGBQYJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk
+JCQkJCQkJCT/wAARCACAAIADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUF
+BAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVW
+V1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi
+4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAEC
+AxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVm
+Z2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq
+8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDm/s9H2etP7P7UfZ/avlPbH7V9YOkijq7FHTIo6uRR16lTJ/I/nzB1DzL7PR9nrT+z+1H2
+f2ry/bH9B/WDpIo6uxR0yKOrkUdepUyfyP58wdQ8y+z0fZ60/s/tR9n9q8v2x/Qf1g6SKOrsUdMijq5FHXqVMn8j+fMHUPMvs9H2
+etP7P7UfZ/avL9sf0H9YOkijq7FHTIo6uRR16lTJ/I/nzB1Dj4o6uxR0yKOrsUdd1TJ/I+UwdQo/Z/aj7P7Vp/Z/aj7P7V8P7Y/p
+T6wYcUdXYo6ZFHV2KOvuKmT+R/NeDqFH7P7UfZ/atP7P7UfZ/avh/bH9KfWDDijq7FHTIo6uxR19xUyfyP5rwdQo/Z/aj7P7Vp/Z
+/aj7P7V8P7Y/pT6wYcUdXYo6ZFHV2KOvuKmT+R/NeDqFH7P7UfZ/atP7P7UfZ/avh/bH9KfWDhvs9H2etP7P7UfZ/avW9se19YOk
+ijq7FHTIo6uRR16lTJ/I/nzB1DzL7PR9nrT+z+1H2f2ry/bH9B/WDpIo6uxR0yKOrkUdepUyfyP58wdQ8y+z0fZ60/s/tR9n9q8v
+2x/Qf1g6SKOrsUdMijq5FHXqVMn8j+fMHUPMvs9H2etP7P7UfZ/avL9sf0H9YOkijq7FHTIo6uRR16lTJ/I/nzB1Dj4o6uxR0yKO
+rsUdd1TJ/I+UwdQo/Z/aj7P7Vp/Z/aj7P7V8P7Y/pT6wYcUdXYo6ZFHV2KOvuKmT+R/NeDqFH7P7UfZ/atP7P7UfZ/avh/bH9KfW
+DDijq7FHTIo6uxR19xUyfyP5rwdQo/Z/aj7P7Vp/Z/aj7P7V8P7Y/pT6wYcUdXYo6ZFHV2KOvuKmT+R/NeDqFH7P7UfZ/atP7P7U
+fZ/avh/bH9KfWDhvs9H2etP7P7UfZ/avW9se19YOkijq7FHTIo6uRR16lTJ/I/nzB1DzL7PR9nrT+z+1H2f2ry/bH9B/WDpIo6ux
+R0yKOrkUdepUyfyP58wdQ8y+z0fZ60/s/tR9n9q8v2x/Qf1g6SKOrsUdMijq5FHXqVMn8j+fMHUPMvs9H2etP7P7UfZ/avL9sf0H
+9YOkijq7FHTIo6uRR16lTJ/I/nzB1Dj4o6uxR0yKOrsUdd1TJ/I+UwdQo/Z/aj7P7Vp/Z/aj7P7V8P7Y/pT6wYcUdXYo6ZFHV2KO
+vuKmT+R/NeDqFH7P7UfZ/atP7P7UfZ/avh/bH9KfWDDijq7FHTIo6uxR19xUyfyP5rwdQo/Z/aj7P7Vp/Z/aj7P7V8P7Y/pT6wYc
+UdXYo6ZFHV2KOvuKmT+R/NeDqFH7P7UfZ/atP7P7UfZ/avh/bH9KfWDhvs9H2etP7P7UfZ/avW9se19YOkijq7FHTIo6uRR16lTJ
+/I/nzB1DzL7PR9nrT+z+1H2f2ry/bH9B/WDpIo6uxR0yKOrkUdepUyfyP58wdQ8y+z0fZ60/s/tR9n9q8v2x/Qf1g6SKOrsUdMij
+q5FHXqVMn8j+fMHUPMvs9H2etP7P7UfZ/avL9sf0H9YOkijq7FHTIo6uRR16lTJ/I/nzB1Dj4o6uxR0yKOrsUdd1TJ/I+UwdQo/Z
+/aj7P7Vp/Z/aj7P7V8P7Y/pT6wYcUdXYo6ZFHV2KOvuKmT+R/NeDqFH7P7UfZ/atP7P7UfZ/avh/bH9KfWDDijq7FHTIo6uxR19x
+UyfyP5rwdQo/Z/aj7P7Vp/Z/aj7P7V8P7Y/pT6wYcUdXYo6ZFHV2KOvuKmT+R/NeDqFH7P7UfZ/atP7P7UfZ/avh/bH9KfWD/9k=
+`.replace(/\s+/g, '');
+
+const PDF_BASE64 = `
+JVBERi0xLjQKJeLjz9MKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwg
+L1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVu
+dCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIgNzkyXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA1IDAgUiA+PiA+PiAvQ29u
+dGVudHMgNCAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCAyMjYgPj4Kc3RyZWFtCkJUIC9GMSAxNiBUZiA3MiA3MjAg
+VGQgKEJpdExhYiAtIFRlb3JpYSBkZSBsYSBJbmZvcm1hY2lvbikgVGogMCAtMjggVGQgL0YxIDExIFRmIChQREYgcmVwcm9kdWNp
+YmxlIHBhcmEgYW5hbGl6YXIgZW50cm9waWEsIEh1ZmZtYW4geSBvdmVyaGVhZC4pIFRqIDAgLTIwIFRkIChDb250ZW5pZG8gdGV4
+dHVhbCBjb24gcGF0cm9uZXM6IEJJVExBQiBCSVRMQUIgQklUTEFCIDAxMDEwMTAxLikgVGogRVQKZW5kc3RyZWFtCmVuZG9iago1
+IDAgb2JqCjw8IC9UeXBlIC9Gb250IC9TdWJ0eXBlIC9UeXBlMSAvQmFzZUZvbnQgL0hlbHZldGljYSA+PgplbmRvYmoKeHJlZgow
+IDYKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDE1IDAwMDAwIG4gCjAwMDAwMDAwNjQgMDAwMDAgbiAKMDAwMDAwMDEyMSAw
+MDAwMCBuIAowMDAwMDAwMjQ3IDAwMDAwIG4gCjAwMDAwMDA1MjQgMDAwMDAgbiAKdHJhaWxlcgo8PCAvU2l6ZSA2IC9Sb290IDEg
+MCBSID4+CnN0YXJ0eHJlZgo1OTQKJSVFT0YK
+`.replace(/\s+/g, '');
+
+const ZIP_BASE64 = `
+UEsDBBQAAAAIAAAAIVB/mcNm9gAAAAAIAQAOAAAAcmVwZXRpdGl2by50eHTtyskJwCAQAMB/erGINQcsGAWxHItPH2HmPTVXi7rX
+PWZGue7SomR/xnzjzNH3UQVBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARB
+EARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARB
+EARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEARBEIQ/hg9QSwMEFAAAAAgA
+AAAhUCMswS8gCwAAvjgAAA4AAAB0ZWxlbWV0cmlhLmNzdmWbS4rlVhAF528tZZDuV1pOY3tgMG5jN71+Z6jqeRBn1HA5AhGq7Azl
+S/3x28df33/7/vH7vz++1T8/v/35/Z/X8Zz9cnx8+/XHHz+/fxyv8/PkrNzfv//z7WO+2udJe5+cx6t/HvX3Zed8jc+j8U614zU/
+j+b/R/O1Po/W+8J+vPbn0X6n+nxd77v6OhrH637f1teFY77OQzc26+7P9529zyrX3rf2de2qXNe9rcqN9819ne3KzffdfV27K7d0
+e1fltrDV0fW+va9L68pbd1co2yFwxbKd77v7urRgtqa7K5qtm13lhh5p8WxTd1dA2xK9Itq2nmsRbZfur4i22/TqT+LQoy2i/dT9
+FdHeRK+I9q6nW0T70P3V0fTDffWlZ8sf59bdFdF+mV7lbj3bIjoO3V0RHS6JIjqaHm4RHV23V0SHy6KIjqmnW0TH0v0V0eHKKKLj
+0tMtouPW/RXR6dooovPU062j5tt7TVdGEZ1Dz7aIzqm7o+BdGUV0bj3bIjov3V0Rna6NIroOPd0iuk7dXxFdro0iurqebhFdQ/dX
+RJdro4iupadbRNfW/RXR5dqoo9sP97UP3V0R3a6MIrqbnm0R3V13V0S3K4P/RKeebRHdS3dXRLdro4juS0+3iO5b91dEL9dGEb1O
+Pd0ierlhFNHLtVFEr6GnW0Qv94w6cmnUlVvPtohebhpF9HJlFNH70LMtore7RhG9XRpF9O56uDQmd40iers2iui99HSL6O2uUURv
+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
+c3ZQSwUGAAAAAAIAAgB4AAAAbgwAAAAA
+`.replace(/\s+/g, '');
+
+function decodeBase64(value: string): Uint8Array {
+  const binary = atob(value);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+function writeUint16LE(view: DataView, offset: number, value: number): void {
+  view.setUint16(offset, value, true);
+}
+
+function writeUint32LE(view: DataView, offset: number, value: number): void {
+  view.setUint32(offset, value, true);
+}
+
+export function makeUncompressedBmp(width = 128, height = 128): Uint8Array {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+    throw new RangeError('Las dimensiones BMP deben ser enteros positivos.');
+  }
+
+  const bytesPerPixel = 3;
+  const rowBytes = width * bytesPerPixel;
+  const rowStride = Math.ceil(rowBytes / 4) * 4;
+  const pixelBytes = rowStride * height;
+  const headerBytes = 54;
+  const fileSize = headerBytes + pixelBytes;
+  const bytes = new Uint8Array(fileSize);
+  const view = new DataView(bytes.buffer);
+
+  bytes[0] = 0x42;
+  bytes[1] = 0x4d;
+  writeUint32LE(view, 2, fileSize);
+  writeUint32LE(view, 10, headerBytes);
+  writeUint32LE(view, 14, 40);
+  writeUint32LE(view, 18, width);
+  writeUint32LE(view, 22, height);
+  writeUint16LE(view, 26, 1);
+  writeUint16LE(view, 28, 24);
+  writeUint32LE(view, 34, pixelBytes);
+
+  for (let y = 0; y < height; y += 1) {
+    const sourceY = height - 1 - y;
+    for (let x = 0; x < width; x += 1) {
+      const evenBlock = ((Math.floor(x / 16) + Math.floor(sourceY / 16)) % 2) === 0;
+      const red = evenBlock ? 220 : 30 + (x % 32) * 4;
+      const green = evenBlock ? 40 + (sourceY % 32) * 3 : 170;
+      const blue = evenBlock ? 50 : 60 + (sourceY % 16) * 8;
+      const offset = headerBytes + y * rowStride + x * bytesPerPixel;
+      bytes[offset] = blue;
+      bytes[offset + 1] = green;
+      bytes[offset + 2] = red;
+    }
+  }
+
+  return bytes;
+}
+
+export function getRealFormatFixture(id: RealFormatFixtureId): Uint8Array {
+  switch (id) {
+    case 'png':
+      return decodeBase64(PNG_BASE64);
+    case 'jpeg':
+      return decodeBase64(JPEG_BASE64);
+    case 'pdf':
+      return decodeBase64(PDF_BASE64);
+    case 'zip':
+      return decodeBase64(ZIP_BASE64);
+  }
+}

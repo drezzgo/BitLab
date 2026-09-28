@@ -1,4 +1,6 @@
+import '../../styles/interpretation.css';
 import type { HuffmanContainerMetrics } from '../../core/container';
+import { interpretHuffmanMetrics } from '../../core/interpretation';
 
 interface Props {
   metrics: HuffmanContainerMetrics;
@@ -18,6 +20,7 @@ function formatBytes(bytes: number): string {
 export default function CodingMetricsPanel({ metrics, originalSizeBytes }: Props) {
   const payloadImproved = metrics.payloadSavingsPercent >= 0;
   const containerImproved = metrics.overallVariationPercent <= 0;
+  const interpretation = interpretHuffmanMetrics(metrics, originalSizeBytes);
 
   return (
     <section className="coding-metrics" aria-labelledby="coding-metrics-title">
@@ -97,6 +100,59 @@ export default function CodingMetricsPanel({ metrics, originalSizeBytes }: Props
           </p>
         </article>
       </div>
+
+      <section className="interpretation-panel" aria-label="Interpretación de la codificación Huffman">
+        <div className="interpretation-heading">
+          <span>LECTURA DEL RESULTADO</span>
+          <strong>De la teoría al tamaño real del archivo</strong>
+        </div>
+        <div className="interpretation-grid">
+          <article>
+            <span>Huffman frente a H(X)</span>
+            <strong>L̄ − H = {decimal.format(interpretation.codeGapBitsPerSymbol)} bit/símbolo</strong>
+            <p>
+              H(X) es el límite informacional de la fuente y L̄ es lo que usa este código en promedio.
+              La diferencia muestra la separación entre ambos valores para este experimento.
+            </p>
+          </article>
+          <article>
+            <span>Payload</span>
+            <strong>
+              {interpretation.payloadOutcome === 'lower' && `ahorra ${integer.format(Math.abs(interpretation.payloadDeltaBits))} bits`}
+              {interpretation.payloadOutcome === 'equal' && 'mantiene el mismo número de bits'}
+              {interpretation.payloadOutcome === 'higher' && `añade ${integer.format(interpretation.payloadDeltaBits)} bits`}
+            </strong>
+            <p>
+              Esta comparación todavía ignora header, nombre, MIME, codebook e integridad. Mide únicamente
+              la representación fija frente al flujo Huffman.
+            </p>
+          </article>
+          <article>
+            <span>Overhead del contenedor</span>
+            <strong>{formatBytes(interpretation.nonPayloadOverheadBytes)} fuera del payload</strong>
+            <p>
+              Es la diferencia entre el tamaño completo de <code>.bitlab</code> y los bytes ocupados por el payload.
+              Incluye estructura del formato y metadata necesaria para recuperar el archivo.
+            </p>
+          </article>
+          <article>
+            <span>Resultado final</span>
+            <strong>
+              {interpretation.payloadOutcome === 'lower' && interpretation.containerOutcome === 'higher'
+                ? 'el overhead supera el ahorro del payload'
+                : interpretation.containerOutcome === 'lower'
+                  ? 'el ahorro se conserva en el archivo final'
+                  : interpretation.containerOutcome === 'equal'
+                    ? 'el archivo final conserva el tamaño original'
+                    : 'el archivo final resulta mayor'}
+            </strong>
+            <p>
+              El contenedor cambia {formatBytes(Math.abs(interpretation.containerDeltaBytes))} frente al original.
+              Que sea mayor no invalida Huffman ni la reversibilidad: describe el balance real entre payload y metadata.
+            </p>
+          </article>
+        </div>
+      </section>
     </section>
   );
 }

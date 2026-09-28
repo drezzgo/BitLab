@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import '../../styles/interpretation.css';
+import { interpretSourceStatistics } from '../../core/interpretation';
 import type { SourceStatistics } from '../../core/statistics';
 import type { BitLabWorkerResult } from '../../workers/protocol';
 import { makeRequestId, startWorkerTask, type WorkerTask } from './worker-client';
@@ -79,6 +81,11 @@ export default function SourceStatisticsPanel({ file, wordSizeBits }: Props) {
     return Math.min(100, Math.max(0, result.entropyUtilizationPercent));
   }, [result]);
 
+  const interpretation = useMemo(
+    () => (result ? interpretSourceStatistics(result) : null),
+    [result],
+  );
+
   return (
     <section className="source-analysis" aria-labelledby="source-analysis-title">
       <div className="source-analysis-heading">
@@ -141,6 +148,49 @@ export default function SourceStatisticsPanel({ file, wordSizeBits }: Props) {
               ))}
             </div>
           </div>
+
+          {interpretation && (
+            <section className="interpretation-panel" aria-label="Interpretación de la fuente">
+              <div className="interpretation-heading">
+                <span>LECTURA DEL RESULTADO</span>
+                <strong>Qué significan estas métricas para esta fuente</strong>
+              </div>
+              <div className="interpretation-grid">
+                <article>
+                  <span>Entropía frente al ancho fijo</span>
+                  <strong>
+                    {decimalFormatter.format(result.entropyBitsPerSymbol)} de {result.wordSizeBits} bit/símbolo
+                  </strong>
+                  <p>
+                    La diferencia es {decimalFormatter.format(interpretation.entropyGapBitsPerSymbol)} bit/símbolo.
+                    Es redundancia estadística respecto a la representación fija; no son bits que ya hayan sido comprimidos.
+                  </p>
+                </article>
+                <article>
+                  <span>Distribución observada</span>
+                  <strong>
+                    {interpretation.dominantSymbolProbabilityPercent === null
+                      ? 'Sin símbolos observados'
+                      : interpretation.singleObservedSymbol
+                        ? 'Un único símbolo observado'
+                        : `${decimalFormatter.format(interpretation.dominantSymbolProbabilityPercent)} % en el símbolo más frecuente`}
+                  </strong>
+                  <p>
+                    La entropía depende de toda la distribución. La frecuencia dominante ayuda a leer la concentración,
+                    pero no sustituye el cálculo completo de H(X).
+                  </p>
+                </article>
+                <article>
+                  <span>Al cambiar N</span>
+                  <strong>{integerFormatter.format(result.uniqueSymbols)} símbolos distintos con N = {result.wordSizeBits}</strong>
+                  <p>
+                    Cambiar el tamaño de palabra redefine los símbolos y el alfabeto observado. Por eso las probabilidades
+                    y la entropía deben recalcularse para cada N.
+                  </p>
+                </article>
+              </div>
+            </section>
+          )}
         </>
       )}
 

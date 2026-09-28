@@ -1,0 +1,50 @@
+BITLAB — CIERRE ACADÉMICO V2 (OVERLAY DIRECTO)
+
+Esta versión NO usa `git apply`.
+
+Motivo:
+los Markdown de tu rama ya evolucionaron respecto a la base pública y un patch textual
+puede fallar aunque el contenido final sea correcto.
+
+1. Estando en la raíz del repositorio y en la rama de trabajo:
+
+   git status
+
+2. Desde Git Bash, extrae el ZIP directamente sobre el proyecto:
+
+   powershell.exe -NoProfile -Command "Expand-Archive -Path 'S:\Downloads\bitlab-phase10-academic-closure-v2.zip' -DestinationPath '.' -Force"
+
+   Esto reemplaza únicamente:
+   - README.md
+   - docs/SCOPE.md
+   - docs/VALIDATION.md
+
+   Y añade:
+   - docs/ACADEMIC_DEFENSE.md
+   - docs/FINAL_CHECKLIST.md
+   - scripts/final-check.ps1
+   - APPLY_PHASE10.ps1
+
+3. Elimina la documentación histórica con:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./APPLY_PHASE10.ps1
+
+4. Revisa el diff:
+
+   git status
+   git diff --check
+   git diff -- README.md docs/SCOPE.md docs/VALIDATION.md
+
+5. Valida:
+
+   pnpm test
+   pnpm build
+
+6. Ejecuta el chequeo final:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/final-check.ps1
+
+No hagas merge si alguno de esos pasos falla.
+
+Si quieres revertir este overlay antes de hacer commit:
+usa Git para restaurar los archivos rastreados y elimina los archivos nuevos.

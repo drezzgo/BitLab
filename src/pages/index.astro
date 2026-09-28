@@ -1,0 +1,60 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import BitLabWorkbench from '../components/react/BitLabWorkbench';
+import ContainerFormatGuide from '../components/react/ContainerFormatGuide';
+---
+<BaseLayout title="BitLab · Codificación binaria">
+  <header class="topbar">
+    <a class="brand" href="#inicio"><span class="brand-mark">01</span><span>bitlab</span></a>
+    <nav aria-label="Principal">
+      <a href="#herramienta"><span>Herramienta</span></a>
+      <a href="#analisis"><span>Análisis</span></a>
+      <a href="#formato-bitlab"><span>Formato .bitlab</span></a>
+    </nav>
+    <span class="academic-tag">Ingeniería Telemática · UD</span>
+  </header>
+
+  <main>
+    <section class="hero" id="inicio">
+      <div class="pixel-bits bits-left" aria-hidden="true">01 10 11</div>
+      <div class="pixel-bits bits-right" aria-hidden="true">1101 0010</div>
+      <p class="eyebrow">TEORÍA DE LA INFORMACIÓN · UNIVERSIDAD DISTRITAL</p>
+      <h1>De cualquier archivo a <span>información binaria.</span></h1>
+      <p>
+        BitLab convierte archivos en símbolos configurables de 2 a 2048 bits, permite inspeccionar
+        su distribución estadística y genera un contenedor reversible para recuperar los bytes originales.
+      </p>
+      <div class="hero-status" aria-label="Características actuales">
+        <span>LOCAL</span><span>BIT-EXACT</span><span>2—2048 BIT</span>
+      </div>
+    </section>
+
+    <section class="section" id="herramienta">
+      <BitLabWorkbench client:load />
+    </section>
+
+    <section class="section theory-band" id="analisis">
+      <div class="theory-copy">
+        <p class="eyebrow">TEORÍA DE LA INFORMACIÓN</p>
+        <h2>De contar símbolos a medir incertidumbre.</h2>
+        <p>
+          La distribución observada permite calcular <strong>p(xᵢ)</strong> y la entropía
+          <strong>H(X) = −Σ p(xᵢ) log₂ p(xᵢ)</strong>. Esa medida indicará cuánta redundancia estadística
+          puede intentar aprovechar posteriormente un codificador de fuente.
+        </p>
+      </div>
+      <div class="theory-terminal" aria-label="Flujo estadístico">
+        <span>FILE</span><b>→</b><span>SYMBOLS</span><b>→</b><span>p(x)</span><b>→</b><span>H(X)</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <ContainerFormatGuide client:load />
+    </section>
+  </main>
+
+  <footer>
+    <div><strong>bitlab</strong><p>Proyecto académico · Teoría de la Información</p></div>
+    <span>Universidad Distrital Francisco José de Caldas · Ingeniería Telemática</span>
+  </footer>
+</BaseLayout>

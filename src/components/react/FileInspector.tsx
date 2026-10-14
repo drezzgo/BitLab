@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import {
   calculateSegmentation,
   MAX_WORD_SIZE_BITS,
@@ -7,7 +7,7 @@ import {
 import FilePickerPreview from './FilePickerPreview';
 import CalculationAuditCards from './CalculationAuditCards';
 
-const QUICK_SIZES = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048];
+const QUICK_SIZES = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65535];
 
 export default function FileInspector() {
   const [file, setFile] = useState<File | null>(null);
@@ -37,7 +37,7 @@ export default function FileInspector() {
 
         <div className="word-config">
           <label htmlFor="word-size">Tamaño de palabra</label>
-          <p className="control-help">Define el ancho lógico de los símbolos: 2–2048 bits.</p>
+          <p className="control-help">Define el ancho lógico de los símbolos: 2–65.535 bits (límite de .bitlab v1).</p>
           <div className="number-control">
             <input
               id="word-size"

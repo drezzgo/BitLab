@@ -1,4 +1,9 @@
-import { BitReader, calculateSegmentation, validateWordSizeBits } from '../bits';
+import {
+  BitReader,
+  bytesToSymbolKey,
+  calculateSegmentation,
+  validateWordSizeBits,
+} from '../bits';
 
 export interface SymbolFrequency {
   key: string;
@@ -37,10 +42,11 @@ function bytesToBinary(bytes: Uint8Array, bitLength: number): string {
 
 function displaySymbol(bytes: Uint8Array, wordSizeBits: number): string {
   if (wordSizeBits <= 16) return bytesToBinary(bytes, wordSizeBits);
+  if (bytes.length <= 12) return `0x${bytesToHex(bytes)}`;
 
-  const hex = bytesToHex(bytes);
-  if (hex.length <= 24) return `0x${hex}`;
-  return `0x${hex.slice(0, 12)}…${hex.slice(-8)}`;
+  const prefix = bytesToHex(bytes.subarray(0, 6));
+  const suffix = bytesToHex(bytes.subarray(bytes.length - 4));
+  return `0x${prefix}…${suffix}`;
 }
 
 export function analyzeSourceStatistics(
@@ -77,7 +83,7 @@ export function analyzeSourceStatistics(
     const padded = new Uint8Array(Math.ceil(wordSizeBits / 8));
     padded.set(raw);
 
-    const key = bytesToHex(padded);
+    const key = bytesToSymbolKey(padded);
     const current = frequency.get(key);
     if (current) current.count += 1;
     else frequency.set(key, { count: 1, bytes: padded });

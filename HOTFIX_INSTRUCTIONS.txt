@@ -1,0 +1,19 @@
+HOTFIX DEL APLICADOR DE BITLAB EXTENDED V1
+
+Este ZIP solo reemplaza APPLY_EXTENDED_V1.ps1.
+No vuelve a tocar los archivos del core ya extraídos.
+
+Desde PowerShell o Git Bash:
+
+powershell.exe -NoProfile -Command "Expand-Archive -Path 'S:\Downloads\bitlab-extended-v1-apply-hotfix.zip' -DestinationPath '.' -Force"
+
+Luego:
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./APPLY_EXTENDED_V1.ps1
+
+Después:
+
+git status
+git diff --check
+pnpm test
+pnpm build

@@ -1,3 +1,5 @@
+import { bytesToSymbolKey } from '../../bits';
+
 export const HUFFMAN_METADATA_VERSION = 1;
 export const HUFFMAN_METADATA_FIXED_BYTES = 21;
 
@@ -11,12 +13,6 @@ export interface HuffmanMetadata {
   encodedBitLength: number;
   totalSymbols: number;
   entries: HuffmanMetadataEntry[];
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  let output = '';
-  for (const value of bytes) output += value.toString(16).padStart(2, '0');
-  return output;
 }
 
 function bigintToSafeNumber(value: bigint, label: string): number {
@@ -96,7 +92,7 @@ export function parseHuffmanMetadata(metadata: Uint8Array, wordSizeBits: number)
     const codeLength = view.getUint32(offset, false);
     offset += 4;
     if (codeLength < 1) throw new Error('Metadata Huffman contiene una longitud de código inválida.');
-    entries.push({ key: bytesToHex(bytes), bytes, codeLength });
+    entries.push({ key: bytesToSymbolKey(bytes), bytes, codeLength });
   }
 
   return { encodedBitLength, totalSymbols, entries };

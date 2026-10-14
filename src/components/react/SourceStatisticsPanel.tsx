@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import '../../styles/interpretation.css';
 import { interpretSourceStatistics } from '../../core/interpretation';
 import type { SourceStatistics } from '../../core/statistics';
@@ -140,7 +140,7 @@ export default function SourceStatisticsPanel({ file, wordSizeBits }: Props) {
               {result.topSymbols.map((symbol, index) => (
                 <div className="frequency-row" key={symbol.key}>
                   <span className="frequency-rank">{String(index + 1).padStart(2, '0')}</span>
-                  <code title={symbol.key}>{symbol.display}</code>
+                  <code title={symbol.display}>{symbol.display}</code>
                   <div className="frequency-bar" aria-hidden="true"><span style={{ width: `${Math.max(2, symbol.probability * 100)}%` }} /></div>
                   <span>{integerFormatter.format(symbol.count)}</span>
                   <strong>{decimalFormatter.format(symbol.probability * 100)} %</strong>

@@ -1,4 +1,4 @@
-# Validación
+﻿# Validación
 
 La validación de BitLab se apoya en propiedades reproducibles y en la separación entre el motor binario, los codecs y la interfaz.
 
@@ -13,7 +13,7 @@ restore(encode(x)) = x
 Los tests cubren tamaños de palabra como:
 
 ```text
-2, 3, 7, 8, 13, 31, 64, 127, 256, 511, 1024, 2048 bits
+2, 3, 7, 8, 13, 31, 64, 127, 256, 511, 1024, 2048, 4096, 8192, 16384, 32768, 65535 bits
 ```
 
 Se incluyen tamaños no múltiplos de 8 para comprobar el manejo de padding y estado de bits.
@@ -37,7 +37,8 @@ Se comprueba:
 - archivo vacío;
 - fuente de un solo símbolo;
 - palabras no múltiplos de 8;
-- palabra de 2048 bits;
+- palabras extendidas de 4.096, 8.192, 16.384 y 32.768 bits;
+- límite v1 de 65.535 bits;
 - métricas coherentes de entropía, longitud media y payload.
 
 ## Contenedor

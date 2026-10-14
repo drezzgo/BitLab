@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { V1_DOUBLING_CHALLENGE_SIZES } from '../../core/bits';
 import type { WordSizeComparisonRow } from '../../core/comparison';
 import type { BitLabWorkerResult } from '../../workers/protocol';
 import { makeRequestId, startWorkerTask, type WorkerProgressState, type WorkerTask } from './worker-client';
@@ -9,8 +10,12 @@ interface Props {
 
 type CompareResult = Extract<BitLabWorkerResult, { operation: 'compare' }>;
 
-const AVAILABLE_SIZES = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048];
+const AVAILABLE_SIZES = [
+  2, 4, 8, 16, 32, 64, 128, 256, 512, 1024,
+  2048, 4096, 8192, 16384, 32768, 65535,
+];
 const DEFAULT_SIZES = [4, 8, 16, 32];
+const CHALLENGE_SIZES = [...V1_DOUBLING_CHALLENGE_SIZES];
 
 const decimal = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 3 });
 const integer = new Intl.NumberFormat('es-CO');
@@ -45,6 +50,12 @@ export default function WordSizeComparator({ file }: Props) {
     if (rows.length === 0) return null;
     return rows.reduce((best, row) => row.containerBytes < best.containerBytes ? row : best);
   }, [rows]);
+
+  function applyPreset(next: number[]) {
+    if (busy) return;
+    setSizes([...next]);
+    setRows([]);
+  }
 
   function toggleSize(size: number) {
     if (busy) return;
@@ -105,8 +116,15 @@ export default function WordSizeComparator({ file }: Props) {
           </p>
         </div>
         <div className="comparator-actions">
-          <button type="button" className="console-button" disabled={busy} onClick={() => setSizes([...AVAILABLE_SIZES])}>Seleccionar todos</button>
-          <button type="button" className="console-button" disabled={busy} onClick={() => setSizes([...DEFAULT_SIZES])}>Selección corta</button>
+          <button type="button" className="console-button" disabled={busy} onClick={() => applyPreset(DEFAULT_SIZES)}>
+            Selección corta
+          </button>
+          <button type="button" className="console-button gold-button" disabled={busy} onClick={() => applyPreset(CHALLENGE_SIZES)}>
+            Reto ×2
+          </button>
+          <button type="button" className="console-button" disabled={busy} onClick={() => applyPreset([65535])}>
+            Límite v1
+          </button>
         </div>
       </div>
 
@@ -120,7 +138,7 @@ export default function WordSizeComparator({ file }: Props) {
             disabled={busy}
             onClick={() => toggleSize(size)}
           >
-            {size}
+            {integer.format(size)}
           </button>
         ))}
       </div>
@@ -141,10 +159,13 @@ export default function WordSizeComparator({ file }: Props) {
             <thead>
               <tr>
                 <th>Palabra</th>
+                <th>Símbolos</th>
                 <th>H(X)</th>
                 <th>L̄</th>
-                <th>Símbolos únicos</th>
+                <th>Únicos</th>
                 <th>Payload</th>
+                <th>Codebook</th>
+                <th>Metadata</th>
                 <th>.bitlab</th>
                 <th>Tamaño final</th>
                 <th>Tiempo</th>
@@ -153,13 +174,25 @@ export default function WordSizeComparator({ file }: Props) {
             <tbody>
               {rows.map((row) => {
                 const isSmallest = smallest?.wordSizeBits === row.wordSizeBits;
+                const isDegenerate = row.totalSymbols <= 1;
+
                 return (
                   <tr key={row.wordSizeBits} className={isSmallest ? 'is-smallest' : ''}>
-                    <td><strong>{row.wordSizeBits} bits</strong>{isSmallest && <small>menor seleccionado</small>}</td>
+                    <td>
+                      <strong>{integer.format(row.wordSizeBits)} bits</strong>
+                      {isSmallest && <small>menor seleccionado</small>}
+                      {isDegenerate && <small>solo 1 símbolo</small>}
+                    </td>
+                    <td>{integer.format(row.totalSymbols)}</td>
                     <td>{decimal.format(row.entropyBitsPerSymbol)}</td>
                     <td>{decimal.format(row.averageCodeLengthBits)}</td>
                     <td>{integer.format(row.uniqueSymbols)}</td>
-                    <td>{row.payloadSavingsPercent >= 0 ? '−' : '+'}{decimal.format(Math.abs(row.payloadSavingsPercent))} %</td>
+                    <td>
+                      {formatBytes(row.payloadBytes)}
+                      <small>{row.payloadSavingsPercent >= 0 ? '−' : '+'}{decimal.format(Math.abs(row.payloadSavingsPercent))} %</small>
+                    </td>
+                    <td>{formatBytes(row.codebookMetadataBytes)}</td>
+                    <td>{formatBytes(row.metadataBytes)}</td>
                     <td>{row.overallVariationPercent <= 0 ? '−' : '+'}{decimal.format(Math.abs(row.overallVariationPercent))} %</td>
                     <td>{formatBytes(row.containerBytes)}</td>
                     <td>{decimal.format(row.processingMs)} ms</td>
@@ -172,8 +205,14 @@ export default function WordSizeComparator({ file }: Props) {
       )}
 
       <p className="comparator-note">
-        Una palabra mayor no garantiza un archivo menor: puede aumentar el número de símbolos únicos
-        y el tamaño del codebook. La comparación mide ese trade-off sobre la fuente concreta.
+        <strong>Reto ×2:</strong> 2.048 → 4.096 → 8.192 → 16.384 → 32.768 bits.
+        El siguiente doble (65.536) ya no cabe en el campo <code>uint16</code> de <code>.bitlab</code> v1.
+        El valor 65.535 se ofrece aparte para validar el límite exacto del formato.
+      </p>
+      <p className="comparator-note">
+        Una palabra mayor no garantiza un archivo menor: puede reducir el número de símbolos pero aumentar
+        el tamaño de cada entrada del codebook. Si queda un solo símbolo, el cálculo sigue siendo correcto,
+        aunque esa distribución ya aporta poca información para comparar estadísticamente la fuente.
       </p>
       {error && <p className="error-banner">{error}</p>}
     </section>

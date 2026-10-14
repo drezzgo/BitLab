@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Jersey+10&family=Manrope:wght@400;500;600;700;800&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Jersey+10&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 :root {
   --ud-red: #ed3237;
@@ -829,7 +829,7 @@ footer > span { color: var(--neon-gold); font-size: 12px; }
 }
 .comparison-table {
   width: 100%;
-  min-width: 850px;
+  min-width: 1120px;
   border-collapse: collapse;
   background: #09090d;
   font-size: 11px;

@@ -1,4 +1,11 @@
-import { BitReader, BitWriter, calculateSegmentation, reassembleBytes, validateWordSizeBits } from '../../bits';
+import {
+  BitReader,
+  BitWriter,
+  bytesToSymbolKey,
+  calculateSegmentation,
+  reassembleBytes,
+  validateWordSizeBits,
+} from '../../bits';
 
 export interface HuffmanSymbol {
   key: string;
@@ -40,12 +47,6 @@ interface HuffmanNode {
   right?: HuffmanNode;
 }
 
-function bytesToHex(bytes: Uint8Array): string {
-  let output = '';
-  for (const value of bytes) output += value.toString(16).padStart(2, '0');
-  return output;
-}
-
 function readPaddedSymbol(reader: BitReader, wordSizeBits: number): Uint8Array {
   const validBits = Math.min(wordSizeBits, reader.remainingBits);
   const raw = reader.readBits(validBits);
@@ -65,7 +66,7 @@ export function collectSymbolFrequencies(
 
   for (let index = 0; index < segmentation.symbolCount; index += 1) {
     const bytes = readPaddedSymbol(reader, wordSizeBits);
-    const key = bytesToHex(bytes);
+    const key = bytesToSymbolKey(bytes);
     const current = frequency.get(key);
     if (current) current.count += 1;
     else frequency.set(key, { key, bytes, count: 1 });
@@ -177,7 +178,9 @@ export function buildCanonicalCodes(
   entries: Array<{ key: string; codeLength: number }>,
 ): Map<string, string> {
   const sorted = [...entries].sort(
-    (left, right) => left.codeLength - right.codeLength || (left.key < right.key ? -1 : left.key > right.key ? 1 : 0),
+    (left, right) =>
+      left.codeLength - right.codeLength ||
+      (left.key < right.key ? -1 : left.key > right.key ? 1 : 0),
   );
   const codes = new Map<string, string>();
   if (sorted.length === 0) return codes;
@@ -245,11 +248,16 @@ export function buildHuffmanModel(data: Uint8Array, wordSizeBits: number): Huffm
     };
   });
 
-  symbols.sort((left, right) => right.count - left.count || (left.key < right.key ? -1 : left.key > right.key ? 1 : 0));
+  symbols.sort(
+    (left, right) =>
+      right.count - left.count ||
+      (left.key < right.key ? -1 : left.key > right.key ? 1 : 0),
+  );
 
-  const efficiencyPercent = averageCodeLengthBits > 0
-    ? (entropyBitsPerSymbol / averageCodeLengthBits) * 100
-    : 0;
+  const efficiencyPercent =
+    averageCodeLengthBits > 0
+      ? (entropyBitsPerSymbol / averageCodeLengthBits) * 100
+      : 0;
 
   return {
     wordSizeBits,
@@ -274,7 +282,7 @@ export function encodeHuffmanPayload(data: Uint8Array, wordSizeBits: number): Hu
 
   for (let index = 0; index < model.totalSymbols; index += 1) {
     const bytes = readPaddedSymbol(reader, wordSizeBits);
-    const code = codeMap.get(bytesToHex(bytes));
+    const code = codeMap.get(bytesToSymbolKey(bytes));
     if (!code) throw new Error('No se encontró código Huffman para un símbolo observado.');
     for (const char of code) writer.writeBit(char === '1' ? 1 : 0);
   }

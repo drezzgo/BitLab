@@ -3,9 +3,13 @@ import { encodeHuffmanContainerDetailed } from '../container';
 
 export interface WordSizeComparisonRow {
   wordSizeBits: number;
+  totalSymbols: number;
   entropyBitsPerSymbol: number;
   averageCodeLengthBits: number;
   uniqueSymbols: number;
+  payloadBytes: number;
+  codebookMetadataBytes: number;
+  metadataBytes: number;
   payloadSavingsPercent: number;
   overallVariationPercent: number;
   containerBytes: number;
@@ -33,9 +37,13 @@ export function compareWordSize(
 
   return {
     wordSizeBits: input.wordSizeBits,
+    totalSymbols: encoded.metrics.totalSymbols,
     entropyBitsPerSymbol: encoded.metrics.entropyBitsPerSymbol,
     averageCodeLengthBits: encoded.metrics.averageCodeLengthBits,
     uniqueSymbols: encoded.metrics.uniqueSymbols,
+    payloadBytes: encoded.metrics.payloadBytes,
+    codebookMetadataBytes: encoded.metrics.codebookMetadataBytes,
+    metadataBytes: encoded.metrics.metadataBytes,
     payloadSavingsPercent: encoded.metrics.payloadSavingsPercent,
     overallVariationPercent: encoded.metrics.overallVariationPercent,
     containerBytes: encoded.metrics.containerBytes,

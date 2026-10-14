@@ -1,6 +1,6 @@
-# Codificación Huffman en BitLab
+﻿# Codificación Huffman en BitLab
 
-BitLab trata el archivo como una fuente de símbolos de ancho fijo `N`, donde `2 <= N <= 2048`.
+BitLab trata el archivo como una fuente de símbolos de ancho fijo `N`, donde `2 <= N <= 65535` dentro de .bitlab v1.
 El codec Huffman trabaja sobre los símbolos realmente observados, no sobre todo el espacio teórico de `2^N` símbolos posibles.
 
 ## Flujo
@@ -30,7 +30,7 @@ El decoder reconstruye el codebook canónico y lee el payload bit a bit hasta re
 
 ## Palabras grandes
 
-Un símbolo de 2048 bits equivale a 256 bytes. BitLab no lo convierte a `Number`. Se conserva como `Uint8Array` y se usa una representación hexadecimal como clave interna.
+Un símbolo de 65.535 bits necesita 8.192 bytes para su representación acolchada. BitLab no lo convierte a `Number`: se conserva como `Uint8Array`. Para identificar símbolos internamente se usa una clave binaria exacta de un carácter por byte, evitando duplicar memoria mediante una cadena hexadecimal completa.
 
 ## Caso de un único símbolo
 

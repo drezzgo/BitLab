@@ -1,4 +1,4 @@
-import { calculateSegmentation, validateWordSizeBits } from '../bits';
+﻿import { calculateSegmentation, validateWordSizeBits } from '../bits';
 import { packIntegrityMetadata } from '../integrity';
 import {
   BITLAB_CONTAINER_VERSION,
@@ -57,6 +57,9 @@ export function encodeBitLabContainerParts(input: {
   const nameBytes = textEncoder.encode(input.originalName);
   const mimeBytes = textEncoder.encode(input.mimeType || 'application/octet-stream');
   const segmentation = calculateSegmentation(input.originalSizeBytes, input.wordSizeBits);
+
+  assertFitsUint16(input.wordSizeBits, 'El tamaño de palabra');
+  assertFitsUint16(segmentation.paddingBits, 'El padding lógico');
 
   assertFitsUint16(nameBytes.length, 'El nombre del archivo');
   assertFitsUint16(mimeBytes.length, 'El MIME type');

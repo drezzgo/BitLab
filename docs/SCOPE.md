@@ -1,6 +1,6 @@
-# Alcance de BitLab
+﻿# Alcance de BitLab
 
-BitLab procesa archivos localmente en el navegador como secuencias de bytes. El tamaño configurable de palabra se interpreta como el número de bits de cada símbolo lógico y puede tomar valores enteros entre 2 y 2048.
+BitLab procesa archivos localmente en el navegador como secuencias de bytes. El tamaño configurable de palabra se interpreta como el número de bits de cada símbolo lógico y puede tomar valores enteros entre 2 y 65.535. Este máximo corresponde al campo uint16 de .bitlab v1.
 
 La segmentación binaria no se presenta como compresión. Sobre los símbolos resultantes, BitLab puede estudiar la distribución de la fuente y aplicar codificación Huffman canónica. El codec RAW se conserva como referencia sin compresión.
 
@@ -20,7 +20,7 @@ La segmentación binaria no se presenta como compresión. Sobre los símbolos re
 ## Principios
 
 - Los bytes se mantienen en `Uint8Array`.
-- No se representan palabras de hasta 2048 bits mediante `Number`.
+- No se representan palabras de hasta 65.535 bits mediante `Number`.
 - El formato del archivo no modifica el tratamiento binario del motor.
 - La extensión o MIME se usa para presentación y para conservar metadata, no para decidir las métricas.
 - El resultado debe poder reconstruirse byte a byte.

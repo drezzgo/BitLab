@@ -1,4 +1,4 @@
-# Checklist final
+﻿# Checklist final
 
 ## Correctitud
 
@@ -13,7 +13,9 @@
 ## Tamaños de palabra
 
 - [ ] Se prueban tamaños múltiplos y no múltiplos de 8.
-- [ ] Se prueba el límite de 2048 bits.
+- [ ] Se prueba la secuencia 2.048 → 4.096 → 8.192 → 16.384 → 32.768 bits.
+- [ ] Se prueba el límite exacto de v1: 65.535 bits.
+- [ ] Se confirma que 65.536 bits es rechazado sin cambiar el formato.
 - [ ] El padding se elimina correctamente al reconstruir.
 - [ ] El comparador usa exactamente el mismo archivo para todos los valores de `N`.
 

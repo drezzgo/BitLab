@@ -1,13 +1,13 @@
-# BitLab
+﻿# BitLab
 
-Aplicación web académica para estudiar **codificación de fuente** sobre archivos arbitrarios tratados como secuencias de bits. El usuario puede definir palabras lógicas entre 2 y 2048 bits, analizar la distribución de símbolos, codificar con Huffman, crear un contenedor `.bitlab`, recuperar el archivo original y comparar el efecto de distintos tamaños de palabra.
+Aplicación web académica para estudiar **codificación de fuente** sobre archivos arbitrarios tratados como secuencias de bits. El usuario puede definir palabras lógicas entre 2 y 65.535 bits dentro de .bitlab v1, analizar la distribución de símbolos, codificar con Huffman, crear un contenedor `.bitlab`, recuperar el archivo original y comparar el efecto de distintos tamaños de palabra.
 
 El procesamiento se realiza localmente en el navegador; BitLab no necesita un backend para analizar o reconstruir archivos.
 
 ## Funcionalidades
 
 - lectura de cualquier archivo como `Uint8Array`;
-- segmentación exacta en símbolos de 2 a 2048 bits, incluido padding lógico;
+- segmentación exacta en símbolos de 2 a 65.535 bits, incluido padding lógico;
 - reconstrucción byte a byte;
 - estadística de frecuencia y probabilidad de símbolos;
 - entropía `H(X)` y redundancia respecto a representación fija;
@@ -73,6 +73,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/final-check.ps
 - `docs/INTEGRITY.md`
 - `docs/PROCESSING_ARCHITECTURE.md`
 - `docs/WORD_SIZE_COMPARISON.md`
+- `docs/EXTENDED_WORD_SIZES.md`
 - `docs/DEMO_SOURCES.md`
 - `docs/REAL_FORMAT_EXAMPLES.md`
 - `docs/RESULT_INTERPRETATION.md`

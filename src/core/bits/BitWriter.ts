@@ -15,15 +15,38 @@ export class BitWriter {
     this.writtenBits += 1;
   }
 
+  private writeByte(value: number): void {
+    const bitOffset = this.writtenBits % 8;
+    const byteIndex = Math.floor(this.writtenBits / 8);
+
+    if (bitOffset === 0) {
+      this.bytes[byteIndex] = value;
+      this.writtenBits += 8;
+      return;
+    }
+
+    if (this.bytes[byteIndex] === undefined) this.bytes[byteIndex] = 0;
+    this.bytes[byteIndex] |= value >>> bitOffset;
+    this.bytes[byteIndex + 1] = (value << (8 - bitOffset)) & 0xff;
+    this.writtenBits += 8;
+  }
+
   writeBits(data: Uint8Array, bitCount = data.length * 8): void {
     if (!Number.isInteger(bitCount) || bitCount < 0 || bitCount > data.length * 8) {
       throw new RangeError('bitCount no es válido para el arreglo suministrado.');
     }
 
-    for (let i = 0; i < bitCount; i += 1) {
-      const byteIndex = Math.floor(i / 8);
-      const bitIndex = 7 - (i % 8);
-      this.writeBit(((data[byteIndex] >> bitIndex) & 1) as 0 | 1);
+    const wholeBytes = Math.floor(bitCount / 8);
+    for (let index = 0; index < wholeBytes; index += 1) {
+      this.writeByte(data[index]);
+    }
+
+    const remainingBits = bitCount % 8;
+    if (remainingBits > 0) {
+      const source = data[wholeBytes];
+      for (let bit = 0; bit < remainingBits; bit += 1) {
+        this.writeBit(((source >> (7 - bit)) & 1) as 0 | 1);
+      }
     }
   }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+﻿import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculateSegmentation, MAX_WORD_SIZE_BITS, MIN_WORD_SIZE_BITS } from '../../core/bits';
 import type { HuffmanContainerMetrics } from '../../core/container';
 import type { BitLabWorkerResult } from '../../workers/protocol';
@@ -15,7 +15,7 @@ import {
   type WorkerTask,
 } from './worker-client';
 
-const QUICK_SIZES = [2, 4, 8, 13, 16, 32, 64, 128, 256, 512, 1024, 2048];
+const QUICK_SIZES = [2, 4, 8, 13, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65535];
 type Mode = 'encode' | 'decode';
 type EncodeCodec = 'huffman' | 'raw';
 type EncodeResult = Extract<BitLabWorkerResult, { operation: 'encode' }>;
@@ -283,7 +283,7 @@ export default function BitLabWorkbench() {
             <div className="settings-panel">
               <div className="panel-number">01</div>
               <label htmlFor="word-size">Tamaño de palabra</label>
-              <p>Define el ancho lógico de cada símbolo entre 2 y 2048 bits.</p>
+              <p>Define el ancho lógico de cada símbolo entre 2 y 65.535 bits dentro del formato .bitlab v1.</p>
               <div className="number-control">
                 <input
                   id="word-size"
@@ -293,7 +293,7 @@ export default function BitLabWorkbench() {
                   value={wordSizeBits}
                   onChange={(event) => {
                     const value = Number(event.target.value);
-                    if (Number.isInteger(value) && value >= 2 && value <= 2048) setWordSizeBits(value);
+                    if (Number.isInteger(value) && value >= MIN_WORD_SIZE_BITS && value <= MAX_WORD_SIZE_BITS) setWordSizeBits(value);
                   }}
                 />
                 <span>bits</span>

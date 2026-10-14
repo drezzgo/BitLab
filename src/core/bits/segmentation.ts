@@ -69,6 +69,26 @@ export function segmentBytes(data: Uint8Array, wordSizeBits: number): SegmentedB
 export function reassembleBytes(segmented: SegmentedBitstream): Uint8Array {
   validateWordSizeBits(segmented.wordSizeBits);
 
+  // The doubling challenge uses byte-aligned word sizes. Reassembling those
+  // symbols can be done as block copies instead of bit-by-bit writes.
+  if (segmented.wordSizeBits % 8 === 0 && segmented.originalBitLength % 8 === 0) {
+    const output = new Uint8Array(segmented.originalBitLength / 8);
+    const wordBytes = segmented.wordSizeBits / 8;
+    let offset = 0;
+
+    for (const symbol of segmented.symbols) {
+      if (offset >= output.length) break;
+      const bytesToCopy = Math.min(wordBytes, output.length - offset);
+      output.set(symbol.bytes.subarray(0, bytesToCopy), offset);
+      offset += bytesToCopy;
+    }
+
+    if (offset !== output.length) {
+      throw new Error('Faltan bits para reconstruir el archivo original.');
+    }
+    return output;
+  }
+
   const writer = new BitWriter();
   let remaining = segmented.originalBitLength;
 

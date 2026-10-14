@@ -1,6 +1,6 @@
-# Estadística de la fuente
+﻿# Estadística de la fuente
 
-BitLab puede analizar los símbolos observados después de segmentar el flujo original con un ancho de palabra `N` entre 2 y 2048 bits.
+BitLab puede analizar los símbolos observados después de segmentar el flujo original con un ancho de palabra `N` entre 2 y 65.535 bits dentro de .bitlab v1.
 
 Para cada símbolo observado se calcula:
 

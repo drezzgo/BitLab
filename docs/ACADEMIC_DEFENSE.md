@@ -1,4 +1,4 @@
-# Guía de sustentación académica
+﻿# Guía de sustentación académica
 
 Esta guía resume los conceptos que deben poder explicarse y relacionarse con la implementación de BitLab.
 
@@ -12,7 +12,7 @@ La extensión y el MIME ayudan a presentar el archivo y se conservan como metada
 
 `N` define cuántos bits forman un símbolo lógico.
 
-Con `N = 8` cada símbolo ocupa un byte. Con `N = 13`, `N = 64` o `N = 2048` los límites de símbolo ya no tienen por qué coincidir con límites de byte.
+Con `N = 8` cada símbolo ocupa un byte. Con valores no múltiplos de 8 los límites de símbolo no coinciden con límites de byte. En v1, BitLab admite hasta N = 65.535 bits.
 
 Cambiar `N` cambia el alfabeto observado. Por eso las frecuencias y probabilidades deben calcularse otra vez.
 
@@ -158,7 +158,7 @@ Cambiar `N` puede:
 - cambiar el codebook;
 - modificar payload, metadata y tiempo de procesamiento.
 
-BitLab puede resaltar el menor contenedor entre los casos ejecutados, pero eso no demuestra que sea el mejor `N` posible entre todos los enteros de 2 a 2048.
+BitLab puede resaltar el menor contenedor entre los casos ejecutados, pero eso no demuestra que sea el mejor `N` posible entre todos los enteros de 2 a 65.535.
 
 ## 13. Fuentes reproducibles
 

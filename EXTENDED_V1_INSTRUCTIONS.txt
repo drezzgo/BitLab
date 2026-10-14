@@ -1,0 +1,43 @@
+BITLAB — EXTENSIÓN DE TAMAÑO DE PALABRA HASTA EL LÍMITE DE .BITLAB V1
+
+Alcance final:
+- rango general: 2..65.535 bits;
+- reto ×2: 2.048, 4.096, 8.192, 16.384, 32.768;
+- 65.535 se prueba como límite exacto de uint16;
+- 65.536 se rechaza;
+- NO se crea .bitlab v2.
+
+APLICACIÓN DESDE GIT BASH
+
+1. Crea una rama:
+
+   git switch -c feat/extended-word-size-v1
+
+2. Extrae el overlay en la raíz del repositorio:
+
+   powershell.exe -NoProfile -Command "Expand-Archive -Path 'S:\Downloads\bitlab-extended-word-size-v1.zip' -DestinationPath '.' -Force"
+
+3. Aplica las sustituciones de UI/documentación:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./APPLY_EXTENDED_V1.ps1
+
+4. Revisa:
+
+   git status
+   git diff --check
+   git diff -- src/core src/components/react/WordSizeComparator.tsx
+
+5. Valida:
+
+   pnpm test
+   pnpm build
+
+6. Prueba manualmente:
+   - N = 4096, 8192, 16384, 32768;
+   - preset "Reto ×2";
+   - N = 65535;
+   - intentar 65536 debe ser rechazado;
+   - codificar Huffman y RAW;
+   - recuperar el archivo y verificar SHA-256.
+
+No hagas merge si tests o build fallan.

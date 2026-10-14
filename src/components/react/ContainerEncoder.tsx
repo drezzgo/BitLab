@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { calculateSegmentation, MAX_WORD_SIZE_BITS, MIN_WORD_SIZE_BITS } from '../../core/bits';
 import { encodeRawContainer } from '../../core/container';
 import FilePickerPreview from './FilePickerPreview';
 import CalculationAuditCards from './CalculationAuditCards';
 
-const QUICK_SIZES = [2, 4, 8, 13, 16, 32, 64, 128, 256, 512, 1024, 2048];
+const QUICK_SIZES = [2, 4, 8, 13, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65535];
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   const copy = new Uint8Array(bytes.byteLength);
@@ -101,7 +101,7 @@ export default function ContainerEncoder() {
               value={wordSizeBits}
               onChange={(event) => {
                 const value = Number(event.target.value);
-                if (Number.isInteger(value) && value >= 2 && value <= 2048) setWordSizeBits(value);
+                if (Number.isInteger(value) && value >= MIN_WORD_SIZE_BITS && value <= MAX_WORD_SIZE_BITS) setWordSizeBits(value);
               }}
             />
             <span>bits</span>

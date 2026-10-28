@@ -1,0 +1,44 @@
+BITLAB ADAPTIVE COMPRESSION LAB — FASE 3 RLE + HUFFMAN
+
+Aplicar sobre la versión donde Fase 1 y Fase 2 ya funcionan.
+
+1. Crear rama:
+
+   git switch -c feat/adaptive-phase3-rle-huffman
+
+2. Extraer:
+
+   Expand-Archive -Path "S:\Downloads\bitlab-adaptive-phase3-rle-huffman.zip" -DestinationPath "." -Force
+
+3. Aplicar:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./APPLY_ADAPTIVE_PHASE3.ps1
+
+4. Validar:
+
+   git status
+   git diff --check
+   pnpm test
+   pnpm build
+
+5. Prueba manual recomendada:
+
+   a) Demo / archivo con runs largos:
+      - Huffman, N=8.
+      - Anotar tamaño final.
+      - RLE + Huffman.
+      - Abrir "Cómo estamos mejorando BitLab".
+      - Comparar.
+
+   b) Archivo PNG/JPEG/ZIP o datos variados:
+      - Probar RLE + Huffman.
+      - Es normal que pueda empeorar.
+
+   c) Recuperación:
+      - descargar un .bitlab RLE + Huffman;
+      - cambiar a Recuperar .bitlab;
+      - reconstruir;
+      - comprobar SHA-256 = Verificada.
+
+RLE + Huffman usa N=8 fijo.
+No hacer merge si tests/build fallan.

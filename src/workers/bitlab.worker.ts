@@ -1,8 +1,6 @@
+import { getRegisteredCodecById, getRegisteredCodecByKey } from '../core/codecs/registry';
 import { compareWordSize, validateComparisonSizes } from '../core/comparison';
 import {
-  BitLabCodecId,
-  encodeHuffmanContainerDetailed,
-  encodeRawContainer,
   parseBitLabContainer,
   restoreBitLabContainer,
 } from '../core/container';
@@ -12,6 +10,10 @@ import {
   sha256Bytes,
   unpackIntegrityMetadata,
 } from '../core/integrity';
+import {
+  getCompressionSearchCandidateCount,
+  optimizeCompression,
+} from '../core/optimizer';
 import { analyzeSourceStatistics } from '../core/statistics';
 import type {
   BitLabWorkerMessage,
@@ -30,33 +32,36 @@ function send(message: BitLabWorkerMessage, transfer: Transferable[] = []): void
   workerScope.postMessage(message, transfer);
 }
 
+function manualParameterLabel(
+  codec: Exclude<BitLabWorkerRequest, { operation: 'decode' | 'analyze' | 'compare' }>['codec'],
+  wordSizeBits: number,
+): string {
+  if (codec === 'lz77-huffman') {
+    return '32 KiB · match ≥ 4 · búsqueda 64';
+  }
+  return `N = ${wordSizeBits}`;
+}
+
 workerScope.addEventListener('message', async (event) => {
   const request = event.data;
 
   try {
     if (request.operation === 'encode') {
       const bytes = new Uint8Array(request.bytes);
+      const searchCount = request.codec === 'auto'
+        ? getCompressionSearchCandidateCount()
+        : 1;
+      const totalSteps = searchCount + 2;
+
       send({
         id: request.id,
         type: 'progress',
         completed: 1,
-        total: 3,
+        total: totalSteps,
         label: 'Calculando SHA-256',
       });
 
       const digest = await sha256Bytes(bytes);
-
-      send({
-        id: request.id,
-        type: 'progress',
-        completed: 2,
-        total: 3,
-        label: request.codec === 'huffman' ? 'Codificando Huffman' : 'Construyendo contenedor RAW',
-      });
-
-      let container: Uint8Array;
-      let metrics = null;
-
       const baseInput = {
         originalName: request.fileName,
         mimeType: request.mimeType,
@@ -64,20 +69,74 @@ workerScope.addEventListener('message', async (event) => {
         originalBytes: bytes,
       };
 
-      if (request.codec === 'huffman') {
-        const encoded = encodeHuffmanContainerDetailed(baseInput, digest);
+      let container: Uint8Array;
+      let metrics = null;
+      let selectedCodec;
+      let selectedCodecLabel: string;
+      let selectedWordSizeBits: number;
+      let selectedParameterLabel: string;
+      let selectedParameters;
+      let selectedCandidateId: string | null = null;
+      let candidates = null;
+
+      if (request.codec === 'auto') {
+        const optimized = optimizeCompression(
+          baseInput,
+          digest,
+          (candidate, completed, total) => {
+            send({
+              id: request.id,
+              type: 'progress',
+              completed: completed + 1,
+              total: total + 2,
+              label: `Probando ${candidate.label} · ${candidate.parameterLabel}`,
+            });
+          },
+        );
+
+        container = optimized.container;
+        metrics = optimized.metrics;
+        selectedCodec = optimized.selectedCodec;
+        selectedCodecLabel = optimized.selectedCodecLabel;
+        selectedWordSizeBits = optimized.selectedWordSizeBits;
+        selectedParameterLabel = optimized.selectedParameterLabel;
+        selectedParameters = optimized.selectedParameters;
+        selectedCandidateId = optimized.selectedCandidateId;
+        candidates = optimized.candidates;
+      } else {
+        const codec = getRegisteredCodecByKey(request.codec);
+
+        send({
+          id: request.id,
+          type: 'progress',
+          completed: 2,
+          total: totalSteps,
+          label: codec.progressLabel,
+        });
+
+        const encoded = codec.encode(baseInput, digest);
         container = encoded.container;
         metrics = encoded.metrics;
-      } else {
-        container = encodeRawContainer(baseInput, digest);
+        selectedCodec = codec.key;
+        selectedCodecLabel = codec.label;
+        selectedWordSizeBits = request.wordSizeBits;
+        selectedParameterLabel = manualParameterLabel(
+          request.codec,
+          request.wordSizeBits,
+        );
+        selectedParameters = {
+          wordSizeBits: request.wordSizeBits,
+        };
       }
 
       send({
         id: request.id,
         type: 'progress',
-        completed: 3,
-        total: 3,
-        label: 'Contenedor listo',
+        completed: totalSteps,
+        total: totalSteps,
+        label: request.codec === 'auto'
+          ? 'Configuración óptima encontrada'
+          : 'Contenedor listo',
       });
 
       const output = container.slice();
@@ -88,6 +147,13 @@ workerScope.addEventListener('message', async (event) => {
         container: output.buffer,
         metrics,
         sha256Hex: bytesToHex(digest),
+        selectedCodec,
+        selectedCodecLabel,
+        selectedWordSizeBits,
+        selectedParameterLabel,
+        selectedParameters,
+        selectedCandidateId,
+        candidates,
       }, [output.buffer]);
       return;
     }
@@ -103,6 +169,7 @@ workerScope.addEventListener('message', async (event) => {
       });
 
       const parsed = parseBitLabContainer(data);
+      const codec = getRegisteredCodecById(parsed.header.codecId);
       const integrityMetadata = unpackIntegrityMetadata(parsed.metadata);
       const restored = restoreBitLabContainer(data);
 
@@ -139,7 +206,7 @@ workerScope.addEventListener('message', async (event) => {
         wordSizeBits: parsed.header.wordSizeBits,
         paddingBits: parsed.header.paddingBits,
         originalSize: Number(parsed.header.originalSizeBytes),
-        codecLabel: parsed.header.codecId === BitLabCodecId.Huffman ? 'Huffman' : 'RAW',
+        codecLabel: codec.label,
         storedSha256Hex: storedDigest ? bytesToHex(storedDigest) : null,
         restoredSha256Hex: bytesToHex(restoredDigest),
         integrityStatus,

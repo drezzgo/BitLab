@@ -1,0 +1,38 @@
+BITLAB — AUTO OPTIMIZER
+
+Aplicar sobre la versión donde LZ77 + Huffman ya funciona.
+
+1. Crear rama:
+
+   git switch -c feat/adaptive-phase5-auto-optimizer
+
+2. Extraer:
+
+   Expand-Archive -Path "S:\Downloads\bitlab-adaptive-phase5-auto-optimizer.zip" -DestinationPath "." -Force
+
+3. Aplicar:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./APPLY_ADAPTIVE_PHASE5.ps1
+
+4. Validar:
+
+   git status
+   git diff --check
+   pnpm test
+   pnpm build
+
+PRUEBA MANUAL
+
+1. Seleccionar "Automático".
+2. Cargar 01_texto_repetitivo.txt.
+3. Buscar mejor compresión.
+4. Revisar la tabla de RAW / Huffman / RLE + Huffman / LZ77 + Huffman.
+5. Repetir con 02_telemetria_estructurada.json.
+6. Repetir con 04_pseudoaleatorio.bin o una imagen PNG/JPEG.
+
+En una imagen ya comprimida es válido que RAW gane.
+El criterio es escoger el menor .bitlab disponible, no forzar una reducción inexistente.
+
+7. Descargar el resultado automático.
+8. Recuperarlo desde "Recuperar .bitlab".
+9. Confirmar SHA-256 = Verificada.

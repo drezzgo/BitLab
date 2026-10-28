@@ -1,8 +1,16 @@
-import type { HuffmanContainerMetrics } from '../core/container';
+import type {
+  CodecMetrics,
+  RegisteredCodecKey,
+} from '../core/codecs/registry';
+import type {
+  CompressionCandidateParameters,
+  CompressionCandidateResult,
+} from '../core/optimizer';
 import type { SourceStatistics } from '../core/statistics';
 import type { WordSizeComparisonRow } from '../core/comparison';
 
-export type EncodeCodec = 'huffman' | 'raw';
+export type ManualEncodeCodec = RegisteredCodecKey;
+export type EncodeCodec = ManualEncodeCodec | 'auto';
 
 export type BitLabWorkerRequest =
   | {
@@ -48,8 +56,15 @@ export type BitLabWorkerResult =
       type: 'result';
       operation: 'encode';
       container: ArrayBuffer;
-      metrics: HuffmanContainerMetrics | null;
+      metrics: CodecMetrics | null;
       sha256Hex: string;
+      selectedCodec: ManualEncodeCodec;
+      selectedCodecLabel: string;
+      selectedWordSizeBits: number;
+      selectedParameterLabel: string;
+      selectedParameters: CompressionCandidateParameters;
+      selectedCandidateId: string | null;
+      candidates: CompressionCandidateResult[] | null;
     }
   | {
       id: string;

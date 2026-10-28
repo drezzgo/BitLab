@@ -5,6 +5,8 @@ export const BITLAB_FIXED_HEADER_BYTES = 36;
 export enum BitLabCodecId {
   Raw = 0,
   Huffman = 1,
+  RleHuffman = 2,
+  Lz77Huffman = 3,
 }
 
 export interface RawContainerInput {
@@ -15,6 +17,8 @@ export interface RawContainerInput {
 }
 
 export interface HuffmanContainerInput extends RawContainerInput {}
+export interface RleHuffmanContainerInput extends RawContainerInput {}
+export interface Lz77HuffmanContainerInput extends RawContainerInput {}
 
 export interface BitLabContainerHeader {
   version: number;

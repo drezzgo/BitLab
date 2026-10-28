@@ -1,0 +1,46 @@
+BITLAB — LZ77 + HUFFMAN + AJUSTES DE UI
+
+Aplicar sobre la versión donde RLE + Huffman ya funciona.
+
+1. Crear rama:
+
+   git switch -c feat/adaptive-phase4-lz77-huffman
+
+2. Extraer:
+
+   Expand-Archive -Path "S:\Downloads\bitlab-adaptive-phase4-lz77-huffman.zip" -DestinationPath "." -Force
+
+3. Aplicar:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./APPLY_ADAPTIVE_PHASE4.ps1
+
+4. Validar:
+
+   git status
+   git diff --check
+   pnpm test
+   pnpm build
+
+PRUEBA RECOMENDADA
+
+A. Comparación sobre texto / JSON / archivo estructurado:
+   1. Huffman N=8.
+   2. RLE + Huffman.
+   3. LZ77 + Huffman.
+   4. Abrir "De frecuencias a secuencias repetidas".
+   5. Comparar tamaños reales.
+
+B. Imagen PNG/JPEG:
+   - probar las tres estrategias;
+   - no asumir que debe reducirse;
+   - registrar cuál produce el menor .bitlab.
+
+C. Recuperación:
+   - descargar un .bitlab LZ77 + Huffman;
+   - recuperarlo;
+   - comprobar SHA-256 = Verificada.
+
+UI:
+   - los Blendy son más anchos;
+   - las barras de desplazamiento quedan ocultas, pero el contenido sigue desplazándose;
+   - se retiró "FASE ACTUAL" y se simplificaron microencabezados.

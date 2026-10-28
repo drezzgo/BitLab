@@ -1,0 +1,183 @@
+/* Phase 4: roomier dialogs and less label-heavy UI */
+
+.codec-picker > div {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.adaptive-dialog {
+  width: min(1180px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  padding: 28px;
+}
+
+/* Keep scroll behavior but remove visually noisy bars. */
+.adaptive-dialog,
+.format-dialog,
+.audit-dialog,
+.comparison-table-wrap,
+.before-after-grid pre,
+.frequency-panel {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.adaptive-dialog::-webkit-scrollbar,
+.format-dialog::-webkit-scrollbar,
+.audit-dialog::-webkit-scrollbar,
+.comparison-table-wrap::-webkit-scrollbar,
+.before-after-grid pre::-webkit-scrollbar,
+.frequency-panel::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+.adaptive-feature-index {
+  letter-spacing: .03em;
+  text-transform: none;
+}
+
+.before-after-grid {
+  gap: 16px;
+}
+
+.before-after-grid article {
+  padding: 20px;
+}
+
+.before-after-grid pre code {
+  min-height: 150px;
+  padding: 16px;
+}
+
+.lz-example {
+  margin-top: 16px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #09090d;
+}
+
+.lz-example > span {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.lz-example code {
+  display: block;
+  min-width: 0;
+  padding: 10px;
+  overflow-wrap: anywhere;
+}
+
+.lz-example b {
+  color: var(--neon-gold);
+}
+
+.phase4-metric-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.phase4-metric-grid article,
+.strategy-comparison-grid article {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.phase4-metric-grid span,
+.phase4-metric-grid small,
+.strategy-comparison-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.phase4-metric-grid strong,
+.strategy-comparison-grid strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--ink);
+}
+
+.phase4-metric-grid small {
+  margin-top: 3px;
+  color: var(--neon-gold);
+}
+
+.strategy-comparison-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.strategy-comparison-grid strong {
+  color: var(--neon-gold);
+}
+
+.next-step-note {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-left: 2px solid var(--ud-gold);
+  background: rgba(180,151,57,.06);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.codec-id-list {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.codec-id-list code {
+  display: block;
+  padding: 8px 9px;
+}
+
+@media (max-width: 980px) {
+  .adaptive-dialog {
+    width: min(96vw, 1180px);
+    padding: 22px;
+  }
+
+  .phase4-metric-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .lz-example {
+    grid-template-columns: 1fr;
+  }
+
+  .lz-example b {
+    transform: rotate(90deg);
+    width: fit-content;
+  }
+}
+
+@media (max-width: 600px) {
+  .codec-picker > div,
+  .phase4-metric-grid,
+  .strategy-comparison-grid,
+  .codec-id-list {
+    grid-template-columns: 1fr;
+  }
+
+  .adaptive-dialog {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+    padding: 18px;
+  }
+}

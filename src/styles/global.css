@@ -1,4 +1,10 @@
 ﻿@import url('https://fonts.googleapis.com/css2?family=Jersey+10&family=Manrope:wght@400;500;600;700;800&display=swap');
+@import './adaptive-phase1.css';
+@import './adaptive-phase3.css';
+@import './adaptive-phase4.css';
+@import './adaptive-phase5.css';
+@import './adaptive-phase6.css';
+@import './adaptive-phase7.css';
 
 :root {
   --ud-red: #ed3237;

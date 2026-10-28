@@ -1,0 +1,33 @@
+BITLAB ADAPTIVE COMPRESSION LAB — FASE 2 CODEC REGISTRY
+
+Esta fase cambia arquitectura interna, no el formato .bitlab ni los algoritmos.
+
+Recomendación: aplícala sobre la rama donde ya validaste la Fase 1, o crea una rama hija.
+
+1. Crear rama:
+
+   git switch -c feat/adaptive-phase2-codec-registry
+
+2. Extraer:
+
+   Expand-Archive -Path "S:\Downloads\bitlab-adaptive-phase2-codec-registry.zip" -DestinationPath "." -Force
+
+3. Aplicar:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./APPLY_ADAPTIVE_PHASE2.ps1
+
+4. Validar:
+
+   git status
+   git diff --check
+   pnpm test
+   pnpm build
+
+5. Prueba manual:
+   - Huffman debe seguir comprimiendo.
+   - RAW debe seguir empaquetando.
+   - Recuperar .bitlab RAW.
+   - Recuperar .bitlab Huffman.
+   - La etiqueta de codec recuperado debe seguir siendo correcta.
+
+No hacer merge si test/build fallan.

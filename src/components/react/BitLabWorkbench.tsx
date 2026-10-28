@@ -1,13 +1,22 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { calculateSegmentation, MAX_WORD_SIZE_BITS, MIN_WORD_SIZE_BITS } from '../../core/bits';
-import type { HuffmanContainerMetrics } from '../../core/container';
-import type { BitLabWorkerResult } from '../../workers/protocol';
-import CalculationAuditCards from './CalculationAuditCards';
-import CodingMetricsPanel from './CodingMetricsPanel';
+import type {
+  HuffmanContainerMetrics,
+  Lz77HuffmanContainerMetrics,
+  RleHuffmanContainerMetrics,
+} from '../../core/container';
+import type {
+  BitLabWorkerResult,
+  EncodeCodec,
+  ManualEncodeCodec,
+} from '../../workers/protocol';
+import AnalysisToolsCard from './AnalysisToolsCard';
+import AutoOptimizerPanel from './AutoOptimizerPanel';
+import BenchmarkPanel from './BenchmarkPanel';
+import CompactFormatCard from './CompactFormatCard';
+import CompressionEvolutionCard from './CompressionEvolutionCard';
 import FilePickerPreview from './FilePickerPreview';
 import FilePreview from './FilePreview';
-import SourceStatisticsPanel from './SourceStatisticsPanel';
-import WordSizeComparator from './WordSizeComparator';
 import {
   makeRequestId,
   startWorkerTask,
@@ -17,7 +26,6 @@ import {
 
 const QUICK_SIZES = [2, 4, 8, 13, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65535];
 type Mode = 'encode' | 'decode';
-type EncodeCodec = 'huffman' | 'raw';
 type EncodeResult = Extract<BitLabWorkerResult, { operation: 'encode' }>;
 type DecodeWorkerResult = Extract<BitLabWorkerResult, { operation: 'decode' }>;
 
@@ -32,6 +40,10 @@ function formatBytes(bytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB'];
   const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 2)} ${units[index]}`;
+}
+
+function formatPercent(value: number): string {
+  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(value);
 }
 
 function makeDeterministicRandomBytes(length: number): Uint8Array {
@@ -85,7 +97,14 @@ export default function BitLabWorkbench() {
   const [file, setFile] = useState<File | null>(null);
   const [wordSizeBits, setWordSizeBits] = useState(8);
   const [containerBytes, setContainerBytes] = useState<Uint8Array | null>(null);
-  const [huffmanMetrics, setHuffmanMetrics] = useState<HuffmanContainerMetrics | null>(null);
+  const [compressionMetrics, setCompressionMetrics] = useState<EncodeResult['metrics']>(null);
+  const [strategyResults, setStrategyResults] = useState<Partial<Record<ManualEncodeCodec, number>>>({});
+  const [strategyMetrics, setStrategyMetrics] = useState<Partial<Record<ManualEncodeCodec, EncodeResult['metrics']>>>({});
+  const [selectedCodec, setSelectedCodec] = useState<ManualEncodeCodec | null>(null);
+  const [selectedCodecLabel, setSelectedCodecLabel] = useState<string | null>(null);
+  const [selectedParameterLabel, setSelectedParameterLabel] = useState<string | null>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [optimizerCandidates, setOptimizerCandidates] = useState<EncodeResult['candidates']>(null);
   const [sourceSha256, setSourceSha256] = useState<string | null>(null);
   const [decodeResult, setDecodeResult] = useState<DecodeResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,13 +129,23 @@ export default function BitLabWorkbench() {
     taskRef.current?.cancel();
     taskRef.current = null;
     setContainerBytes(null);
-    setHuffmanMetrics(null);
+    setCompressionMetrics(null);
+    setSelectedCodec(null);
+    setSelectedCodecLabel(null);
+    setSelectedParameterLabel(null);
+    setSelectedCandidateId(null);
+    setOptimizerCandidates(null);
     setSourceSha256(null);
     setDecodeResult(null);
     setProgress(null);
     setBusy(false);
     setError(null);
   }, [file, mode, wordSizeBits, codec]);
+
+  useEffect(() => {
+    setStrategyResults({});
+    setStrategyMetrics({});
+  }, [file, mode, wordSizeBits]);
 
   useEffect(() => {
     if (!containerBytes && !decodeResult) {
@@ -136,7 +165,7 @@ export default function BitLabWorkbench() {
     setMode(next);
     setFile(null);
     const url = new URL(window.location.href);
-    url.searchParams.set('modo', next === 'encode' ? 'codificar' : 'decodificar');
+    url.searchParams.set('modo', next === 'encode' ? 'comprimir' : 'decodificar');
     history.replaceState({}, '', `${url.pathname}${url.search}#herramienta`);
   }
 
@@ -149,7 +178,7 @@ export default function BitLabWorkbench() {
     if (!file) return;
     setBusy(true);
     setError(null);
-    setHuffmanMetrics(null);
+    setCompressionMetrics(null);
     setProgress({ completed: 0, total: 3, label: 'Preparando archivo' });
 
     try {
@@ -167,14 +196,41 @@ export default function BitLabWorkbench() {
       const response = await task.promise;
       taskRef.current = null;
 
-      setContainerBytes(new Uint8Array(response.container));
-      setHuffmanMetrics(response.metrics);
+      const outputBytes = new Uint8Array(response.container);
+      setContainerBytes(outputBytes);
+      setCompressionMetrics(response.metrics);
+      setSelectedCodec(response.selectedCodec);
+      setSelectedCodecLabel(response.selectedCodecLabel);
+      setSelectedParameterLabel(response.selectedParameterLabel);
+      setSelectedCandidateId(response.selectedCandidateId);
+      setOptimizerCandidates(response.candidates);
+
+      if (response.candidates) {
+        setStrategyResults(
+          Object.fromEntries(
+            response.candidates.map((candidate) => [
+              candidate.codec,
+              candidate.containerBytes,
+            ]),
+          ) as Partial<Record<ManualEncodeCodec, number>>,
+        );
+      } else {
+        setStrategyResults((current) => ({
+          ...current,
+          [response.selectedCodec]: outputBytes.length,
+        }));
+      }
+
+      setStrategyMetrics((current) => ({
+        ...current,
+        [response.selectedCodec]: response.metrics,
+      }));
       setSourceSha256(response.sha256Hex);
       setProgress(null);
     } catch (cause) {
       taskRef.current = null;
       setContainerBytes(null);
-      setHuffmanMetrics(null);
+      setCompressionMetrics(null);
       setSourceSha256(null);
       setProgress(null);
 
@@ -229,6 +285,33 @@ export default function BitLabWorkbench() {
     }
   }
 
+  function selectCodec(next: EncodeCodec) {
+    if (next === 'auto' || next === 'rle-huffman' || next === 'lz77-huffman') setWordSizeBits(8);
+    setCodec(next);
+  }
+
+  const huffmanMetrics: HuffmanContainerMetrics | null =
+    compressionMetrics &&
+    !('rleBytes' in compressionMetrics) &&
+    !('lz77Bytes' in compressionMetrics)
+      ? compressionMetrics
+      : null;
+
+  const rleCandidateMetrics = strategyMetrics['rle-huffman'];
+  const rleHuffmanMetrics: RleHuffmanContainerMetrics | null =
+    rleCandidateMetrics && 'rleBytes' in rleCandidateMetrics
+      ? rleCandidateMetrics
+      : null;
+
+  const lz77CandidateMetrics = strategyMetrics['lz77-huffman'];
+  const lz77HuffmanMetrics: Lz77HuffmanContainerMetrics | null =
+    lz77CandidateMetrics && 'lz77Bytes' in lz77CandidateMetrics
+      ? lz77CandidateMetrics
+      : null;
+
+  const byteOrientedCodec =
+    codec === 'auto' || codec === 'rle-huffman' || codec === 'lz77-huffman';
+
   function cancelOperation() {
     taskRef.current?.cancel();
     taskRef.current = null;
@@ -240,15 +323,19 @@ export default function BitLabWorkbench() {
     ? containerBytes.length - file.size
     : null;
 
+  const overallPercent = mode === 'encode' && file && containerBytes && file.size > 0
+    ? (containerBytes.length / file.size - 1) * 100
+    : null;
+
   return (
-    <section className="unified-workbench" aria-labelledby="tool-title">
+    <section className="unified-workbench adaptive-workbench" aria-labelledby="tool-title">
       <div className="tool-heading">
         <div>
-          <p className="eyebrow">HERRAMIENTA BINARIA</p>
-          <h2 id="tool-title">Codifica y recupera desde un mismo lugar.</h2>
+          <p className="eyebrow">COMPRESOR BITLAB</p>
+          <h2 id="tool-title">Comprime, mide y recupera desde un mismo lugar.</h2>
           <p>
-            El archivo se procesa localmente. Las operaciones pesadas se ejecutan fuera del hilo principal
-            y los nuevos contenedores guardan un SHA-256 del archivo original.
+            Puedes elegir una estrategia manualmente o dejar que BitLab las pruebe todas.
+            El modo automático conserva el menor contenedor completo que pueda recuperar exactamente el archivo.
           </p>
         </div>
         <span className="local-badge">procesamiento local</span>
@@ -256,7 +343,7 @@ export default function BitLabWorkbench() {
 
       <div className="mode-switch" role="tablist" aria-label="Operación">
         <button type="button" role="tab" aria-selected={mode === 'encode'} className={mode === 'encode' ? 'active' : ''} onClick={() => changeMode('encode')}>
-          Codificar archivo
+          Comprimir archivo
         </button>
         <button type="button" role="tab" aria-selected={mode === 'decode'} className={mode === 'decode' ? 'active' : ''} onClick={() => changeMode('decode')}>
           Recuperar .bitlab
@@ -273,8 +360,8 @@ export default function BitLabWorkbench() {
               <button type="button" onClick={() => chooseDemo('random')}>Datos pseudoaleatorios</button>
             </div>
             <p>
-              Los tres ejemplos se generan localmente y permiten contrastar una fuente muy redundante,
-              una fuente estructurada y una fuente con distribución más uniforme.
+              Los ejemplos permiten contrastar rápidamente fuentes con comportamientos estadísticos diferentes
+              sin sustituir las pruebas con archivos reales.
             </p>
           </details>
 
@@ -283,7 +370,11 @@ export default function BitLabWorkbench() {
             <div className="settings-panel">
               <div className="panel-number">01</div>
               <label htmlFor="word-size">Tamaño de palabra</label>
-              <p>Define el ancho lógico de cada símbolo entre 2 y 65.535 bits dentro del formato .bitlab v1.</p>
+              <p>{codec === 'auto'
+                ? 'Automático explora varias configuraciones de Huffman y LZ77; el selector N manual queda desactivado durante la búsqueda.'
+                : byteOrientedCodec
+                  ? 'RLE + Huffman y LZ77 + Huffman trabajan sobre bytes y usan N = 8.'
+                  : <>Configura el símbolo lógico entre 2 y 65.535 bits dentro de <code>.bitlab</code> v1.</>}</p>
               <div className="number-control">
                 <input
                   id="word-size"
@@ -291,35 +382,57 @@ export default function BitLabWorkbench() {
                   min={MIN_WORD_SIZE_BITS}
                   max={MAX_WORD_SIZE_BITS}
                   value={wordSizeBits}
+                  disabled={byteOrientedCodec}
                   onChange={(event) => {
                     const value = Number(event.target.value);
-                    if (Number.isInteger(value) && value >= MIN_WORD_SIZE_BITS && value <= MAX_WORD_SIZE_BITS) setWordSizeBits(value);
+                    if (Number.isInteger(value) && value >= MIN_WORD_SIZE_BITS && value <= MAX_WORD_SIZE_BITS) {
+                      setWordSizeBits(value);
+                    }
                   }}
                 />
                 <span>bits</span>
               </div>
               <div className="quick-sizes">
                 {QUICK_SIZES.map((size) => (
-                  <button key={size} type="button" className={size === wordSizeBits ? 'active' : ''} onClick={() => setWordSizeBits(size)}>
+                  <button key={size} type="button" disabled={byteOrientedCodec} className={size === wordSizeBits ? 'active' : ''} onClick={() => setWordSizeBits(size)}>
                     {size}
                   </button>
                 ))}
               </div>
 
-              <div className="codec-picker" aria-label="Codec de salida">
-                <span>Codec</span>
+              <div className="codec-picker" aria-label="Estrategia de salida">
+                <span>Estrategia disponible</span>
                 <div>
-                  <button type="button" className={codec === 'huffman' ? 'active' : ''} onClick={() => setCodec('huffman')}>
-                    <strong>Huffman</strong><small>codificación de fuente</small>
+                  <button type="button" className={`auto-codec ${codec === 'auto' ? 'active' : ''}`} onClick={() => selectCodec('auto')}>
+                    <strong>Automático</strong><small>prueba todo y conserva el menor .bitlab</small>
                   </button>
-                  <button type="button" className={codec === 'raw' ? 'active' : ''} onClick={() => setCodec('raw')}>
-                    <strong>RAW</strong><small>control sin compresión</small>
+                  <button type="button" className={codec === 'huffman' ? 'active' : ''} onClick={() => selectCodec('huffman')}>
+                    <strong>Huffman</strong><small>referencia estadística</small>
+                  </button>
+                  <button type="button" className={codec === 'rle-huffman' ? 'active' : ''} onClick={() => selectCodec('rle-huffman')}>
+                    <strong>RLE + Huffman</strong><small>runs consecutivos</small>
+                  </button>
+                  <button type="button" className={codec === 'lz77-huffman' ? 'active' : ''} onClick={() => selectCodec('lz77-huffman')}>
+                    <strong>LZ77 + Huffman</strong><small>secuencias repetidas</small>
+                  </button>
+                  <button type="button" className={codec === 'raw' ? 'active' : ''} onClick={() => selectCodec('raw')}>
+                    <strong>RAW</strong><small>sin compresión</small>
                   </button>
                 </div>
               </div>
 
               <button className="primary-button full-button" type="button" disabled={!file || busy} onClick={encode}>
-                {busy ? progress?.label ?? 'Procesando…' : 'Crear archivo .bitlab →'}
+                {busy
+                  ? progress?.label ?? 'Procesando…'
+                  : codec === 'auto'
+                    ? 'Optimizar compresión →'
+                    : codec === 'huffman'
+                      ? 'Comprimir con Huffman →'
+                      : codec === 'rle-huffman'
+                        ? 'Comprimir con RLE + Huffman →'
+                        : codec === 'lz77-huffman'
+                          ? 'Comprimir con LZ77 + Huffman →'
+                          : 'Empaquetar como RAW →'}
               </button>
               {busy && <button className="console-button full-button" type="button" onClick={cancelOperation}>Cancelar operación</button>}
             </div>
@@ -327,49 +440,73 @@ export default function BitLabWorkbench() {
 
           <div className="metric-grid">
             <article><span>Bits originales</span><strong>{segmentation?.originalBitLength.toLocaleString('es-CO') ?? '—'}</strong></article>
-            <article><span>Palabras</span><strong>{segmentation?.symbolCount.toLocaleString('es-CO') ?? '—'}</strong></article>
+            <article><span>Símbolos</span><strong>{segmentation?.symbolCount.toLocaleString('es-CO') ?? '—'}</strong></article>
             <article><span>Padding</span><strong>{segmentation ? `${segmentation.paddingBits} bits` : '—'}</strong></article>
-            <article><span>Codec seleccionado</span><strong>{codec === 'huffman' ? 'HUFFMAN' : 'RAW'}</strong></article>
+            <article><span>Estrategia</span><strong>{codec === 'auto' ? 'AUTOMÁTICO' : codec === 'huffman' ? 'HUFFMAN' : codec === 'rle-huffman' ? 'RLE + HUFFMAN' : codec === 'lz77-huffman' ? 'LZ77 + HUFFMAN' : 'RAW'}</strong></article>
           </div>
 
-          <CalculationAuditCards
-            file={file}
-            wordSizeBits={wordSizeBits}
-            containerSizeBytes={codec === 'raw' ? containerBytes?.length ?? null : null}
-            idPrefix="workbench-audit"
-            title="Comprueba de dónde sale cada resultado"
-          />
-
-          <SourceStatisticsPanel file={file} wordSizeBits={wordSizeBits} />
-
-          {huffmanMetrics && file && (
-            <CodingMetricsPanel metrics={huffmanMetrics} originalSizeBytes={file.size} />
-          )}
-
-          <WordSizeComparator file={file} />
-
           {containerBytes && file && downloadUrl && (
-            <section className="output-panel">
+            <section className="output-panel adaptive-output">
               <div>
-                <span className="result-kicker">ARCHIVO GENERADO</span>
+                <span className="result-kicker">{codec === 'auto' ? `Automático · ${selectedCodecLabel ?? 'resultado'}` : selectedCodecLabel ?? 'Resultado'}</span>
                 <h3>{file.name}.bitlab</h3>
                 <p>
-                  {codec === 'huffman'
-                    ? 'El payload usa Huffman canónico; la metadata conserva el codebook y el SHA-256 necesario para verificar la reconstrucción.'
-                    : 'RAW conserva los bytes originales y añade el SHA-256 como referencia de integridad.'}
+                  {codec === 'auto'
+                    ? `BitLab probó varias configuraciones y conservó ${selectedCodecLabel ?? 'la de menor tamaño'}${selectedParameterLabel ? ` (${selectedParameterLabel})` : ''}.`
+                    : selectedCodec === 'huffman'
+                      ? 'Codificación estadística directa sobre los símbolos seleccionados.'
+                      : selectedCodec === 'rle-huffman'
+                        ? 'Reduce runs consecutivos y después codifica el flujo resultante con Huffman.'
+                        : selectedCodec === 'lz77-huffman'
+                          ? 'Busca secuencias previas, las reemplaza por referencias y aplica Huffman al flujo de tokens.'
+                          : 'Conserva los bytes sin comprimir para tener un punto de control.'}
                 </p>
                 {sourceSha256 && <code className="hash-inline">SHA-256 {sourceSha256}</code>}
               </div>
               <div className="output-stats">
-                <div><span>Tamaño final</span><strong>{formatBytes(containerBytes.length)}</strong></div>
+                <div><span>Original</span><strong>{formatBytes(file.size)}</strong></div>
+                <div><span>Resultado</span><strong>{formatBytes(containerBytes.length)}</strong></div>
                 <div>
-                  <span>Vs. original</span>
+                  <span>Diferencia</span>
                   <strong>{sizeDifference !== null && sizeDifference >= 0 ? '+' : '−'}{formatBytes(Math.abs(sizeDifference ?? 0))}</strong>
+                </div>
+                <div>
+                  <span>Variación</span>
+                  <strong>
+                    {overallPercent === null ? '—' : `${overallPercent > 0 ? '+' : ''}${formatPercent(overallPercent)} %`}
+                  </strong>
                 </div>
               </div>
               <a className="primary-cta" href={downloadUrl} download={`${file.name}.bitlab`}>Descargar ↓</a>
             </section>
           )}
+
+          {codec === 'auto' && file && optimizerCandidates && selectedCodecLabel && selectedParameterLabel && selectedCandidateId && (
+            <AutoOptimizerPanel
+              originalBytes={file.size}
+              selectedCandidateId={selectedCandidateId}
+              selectedCodecLabel={selectedCodecLabel}
+              selectedParameterLabel={selectedParameterLabel}
+              candidates={optimizerCandidates}
+            />
+          )}
+
+          <div className="adaptive-feature-stack">
+            <AnalysisToolsCard
+              file={file}
+              wordSizeBits={wordSizeBits}
+              codec={selectedCodec ?? (codec === 'auto' ? 'huffman' : codec)}
+              huffmanMetrics={huffmanMetrics}
+              containerSizeBytes={containerBytes?.length ?? null}
+            />
+            <CompressionEvolutionCard
+              lz77Metrics={lz77HuffmanMetrics}
+              huffmanContainerBytes={strategyResults.huffman ?? null}
+              rleContainerBytes={strategyResults['rle-huffman'] ?? null}
+            />
+            <BenchmarkPanel />
+            <CompactFormatCard />
+          </div>
         </>
       ) : (
         <>
@@ -382,12 +519,12 @@ export default function BitLabWorkbench() {
             />
             <div className="settings-panel decode-panel">
               <div className="panel-number">02</div>
-              <strong>Qué valida el decodificador</strong>
+              <strong>Recuperación reversible</strong>
               <ul>
-                <li>Firma, versión y longitudes del contenedor.</li>
-                <li>Codec, tamaño de palabra y padding.</li>
-                <li>Codebook Huffman cuando corresponde.</li>
-                <li>SHA-256 del archivo restaurado cuando está disponible.</li>
+                <li>Valida firma, versión y longitudes.</li>
+                <li>Identifica el codec almacenado.</li>
+                <li>Reconstruye el payload según su metadata.</li>
+                <li>Verifica SHA-256 cuando está disponible.</li>
               </ul>
               <button className="primary-button full-button" type="button" disabled={!file || busy} onClick={decode}>
                 {busy ? progress?.label ?? 'Recuperando…' : 'Recuperar archivo →'}

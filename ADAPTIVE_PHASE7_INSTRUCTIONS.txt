@@ -1,0 +1,59 @@
+BITLAB — ÚLTIMA FASE: BENCHMARK FINAL
+
+Este paquete también corrige los dos tests obsoletos de compression-optimizer.test.ts.
+
+CAUSA DEL FALLO ANTERIOR
+- Fase 5 esperaba 4 candidatos.
+- Fase 6 amplió el plan a 11 configuraciones.
+- El test viejo no fue actualizado.
+- parameter-optimizer.test.ts sí estaba validando correctamente Fase 6.
+
+1. Crear rama:
+
+   git switch -c feat/adaptive-phase7-final-benchmark
+
+2. Extraer:
+
+   Expand-Archive -Path "S:\Downloads\bitlab-adaptive-phase7-final-benchmark.zip" -DestinationPath "." -Force
+
+3. Aplicar:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./APPLY_ADAPTIVE_PHASE7.ps1
+
+4. Ejecutar verificación completa:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./FINAL_CHECK_ADAPTIVE.ps1
+
+O manualmente:
+
+   git diff --check
+   pnpm test
+   pnpm build
+
+BENCHMARK
+
+En la landing abre:
+
+   Benchmark → Medir el sistema con varios archivos
+
+Selecciona el corpus de pruebas y, si quieres, tus imágenes/PDF/ZIP.
+
+La herramienta:
+- procesa los archivos uno a uno;
+- ejecuta 11 configuraciones por archivo;
+- registra ganador y parámetros;
+- registra tamaño original/final;
+- calcula reducción;
+- mide tiempo;
+- exporta CSV o JSON.
+
+Prueba recomendada:
+- 01_texto_repetitivo.txt
+- 02_telemetria_estructurada.json
+- 03_bloques_repetidos.log
+- 04_pseudoaleatorio.bin
+- PNG/JPEG
+- PDF
+- ZIP
+
+Para el informe, registra también navegador, CPU/equipo y fecha de ejecución.

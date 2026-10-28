@@ -1,0 +1,37 @@
+BITLAB ADAPTIVE COMPRESSION LAB — FASE 1 UI/UX
+
+Este paquete reorganiza la interfaz. No cambia Huffman, RAW ni el formato .bitlab.
+
+Desde PowerShell:
+
+1. Crear rama:
+
+   git switch -c feat/adaptive-phase1-uiux
+
+2. Extraer en la raíz del repositorio:
+
+   Expand-Archive -Path "S:\Downloads\bitlab-adaptive-phase1-uiux.zip" -DestinationPath "." -Force
+
+3. Aplicar integración de CSS/README:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./APPLY_ADAPTIVE_PHASE1.ps1
+
+4. Validar:
+
+   git status
+   git diff --check
+   pnpm test
+   pnpm build
+
+5. Probar manualmente:
+
+   - Comprimir con Huffman.
+   - Empaquetar RAW.
+   - Abrir "Herramientas de análisis".
+   - Activar/desactivar cada herramienta.
+   - Abrir "Cómo estamos mejorando BitLab".
+   - Abrir "Formato .bitlab".
+   - Recuperar un .bitlab existente.
+   - Revisar responsive en ventana estrecha.
+
+No hacer merge si test o build fallan.

@@ -1,0 +1,52 @@
+BITLAB — OPTIMIZACIÓN DE PARÁMETROS
+
+Aplicar sobre la versión donde Auto Optimizer ya funciona.
+
+1. Crear rama:
+
+   git switch -c feat/adaptive-phase6-parameter-optimizer
+
+2. Extraer:
+
+   Expand-Archive -Path "S:\Downloads\bitlab-adaptive-phase6-parameter-optimizer.zip" -DestinationPath "." -Force
+
+3. Aplicar:
+
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./APPLY_ADAPTIVE_PHASE6.ps1
+
+4. Validar:
+
+   git status
+   git diff --check
+   pnpm test
+   pnpm build
+
+PRUEBA RECOMENDADA
+
+Usa "Automático" con:
+
+- 01_texto_repetitivo.txt
+- 02_telemetria_estructurada.json
+- 03_bloques_repetidos.log
+- 04_pseudoaleatorio.bin
+- la imagen PNG/JPEG que ya venías probando
+
+Ahora deben aparecer 11 candidatos.
+
+Huffman:
+- N=4
+- N=8
+- N=12
+- N=16
+
+LZ77 + Huffman:
+- 5 perfiles de ventana/match/búsqueda
+
+Comprueba:
+- cuál configuración gana;
+- tamaño final;
+- que el .bitlab descargado se recupere;
+- SHA-256 = Verificada.
+
+Una imagen ya comprimida puede seguir sin reducirse.
+El objetivo es que BitLab encuentre automáticamente el menor resultado entre las configuraciones evaluadas.

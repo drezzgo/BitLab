@@ -1,4 +1,4 @@
-﻿import { calculateSegmentation, validateWordSizeBits } from '../bits';
+import { calculateSegmentation, validateWordSizeBits } from '../bits';
 import { packIntegrityMetadata } from '../integrity';
 import {
   BITLAB_CONTAINER_VERSION,
@@ -40,6 +40,13 @@ function assertMagic(bytes: Uint8Array): void {
   }
 }
 
+function isSupportedCodecId(value: number): value is BitLabCodecId {
+  return value === BitLabCodecId.Raw
+    || value === BitLabCodecId.Huffman
+    || value === BitLabCodecId.RleHuffman
+    || value === BitLabCodecId.Lz77Huffman;
+}
+
 export function encodeBitLabContainerParts(input: {
   codecId: BitLabCodecId;
   originalName: string;
@@ -60,7 +67,6 @@ export function encodeBitLabContainerParts(input: {
 
   assertFitsUint16(input.wordSizeBits, 'El tamaño de palabra');
   assertFitsUint16(segmentation.paddingBits, 'El padding lógico');
-
   assertFitsUint16(nameBytes.length, 'El nombre del archivo');
   assertFitsUint16(mimeBytes.length, 'El MIME type');
   assertFitsUint32(input.metadata.length, 'La metadata del codec');
@@ -137,10 +143,10 @@ export function parseBitLabContainer(data: Uint8Array): ParsedBitLabContainer {
   }
 
   const codecRaw = view.getUint8(5);
-  if (codecRaw !== BitLabCodecId.Raw && codecRaw !== BitLabCodecId.Huffman) {
+  if (!isSupportedCodecId(codecRaw)) {
     throw new Error(`Codec BitLab no soportado: ${codecRaw}.`);
   }
-  const codecId = codecRaw as BitLabCodecId;
+  const codecId = codecRaw;
 
   const wordSizeBits = view.getUint16(6, false);
   validateWordSizeBits(wordSizeBits);

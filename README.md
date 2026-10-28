@@ -80,6 +80,15 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/final-check.ps
 - `docs/VALIDATION.md`
 - `docs/ACADEMIC_DEFENSE.md`
 - `docs/FINAL_CHECKLIST.md`
+- `docs/ADAPTIVE_COMPRESSION_ROADMAP.md`
+- `docs/PHASE_ADAPTIVE_01_UI_UX.md`
+- `docs/PHASE_ADAPTIVE_02_CODEC_REGISTRY.md`
+- `docs/PHASE_ADAPTIVE_03_RLE_HUFFMAN.md`
+- `docs/PHASE_ADAPTIVE_04_LZ77_HUFFMAN.md`
+- `docs/PHASE_ADAPTIVE_05_AUTO_OPTIMIZER.md`
+- `docs/PHASE_ADAPTIVE_06_PARAMETER_OPTIMIZATION.md`
+- `docs/PHASE_ADAPTIVE_07_FINAL_BENCHMARK.md`
+- `docs/FINAL_PROJECT_SUMMARY.md`
 
 ## Alcance
 

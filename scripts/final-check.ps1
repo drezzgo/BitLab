@@ -22,11 +22,11 @@ Invoke-CheckedCommand "git diff --check" {
 }
 
 Invoke-CheckedCommand "pnpm test" {
-  pnpm test
+  pnpm.cmd test
 }
 
 Invoke-CheckedCommand "pnpm build" {
-  pnpm build
+  pnpm.cmd build
 }
 
 Write-Host ""
@@ -59,7 +59,8 @@ $requiredFiles = @(
   "docs/REAL_FORMAT_EXAMPLES.md",
   "docs/VALIDATION.md",
   "docs/ACADEMIC_DEFENSE.md",
-  "docs/FINAL_CHECKLIST.md"
+  "docs/FINAL_CHECKLIST.md",
+  "docs/EVOLUCION_Y_SIMULACION.md"
 )
 
 foreach ($path in $requiredFiles) {

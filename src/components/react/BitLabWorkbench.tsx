@@ -17,6 +17,7 @@ import CompactFormatCard from './CompactFormatCard';
 import CompressionEvolutionCard from './CompressionEvolutionCard';
 import FilePickerPreview from './FilePickerPreview';
 import FilePreview from './FilePreview';
+import NetworkLab from './NetworkLab';
 import {
   makeRequestId,
   startWorkerTask,
@@ -116,6 +117,9 @@ export default function BitLabWorkbench() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('modo') === 'decodificar') setMode('decode');
+    if (window.location.hash === '#redes') {
+      window.requestAnimationFrame(() => document.getElementById('redes')?.scrollIntoView());
+    }
   }, []);
 
   useEffect(() => () => taskRef.current?.cancel(), []);
@@ -332,6 +336,7 @@ export default function BitLabWorkbench() {
           <p>
             Elige un archivo. BitLab puede buscar el menor contenedor reversible o usar la estrategia que selecciones.
           </p>
+          <a href="#redes">Explorar simulador 5G / 6G →</a>
         </div>
       </div>
 
@@ -429,6 +434,8 @@ export default function BitLabWorkbench() {
             </div>
             <p>Compara fuentes con comportamientos estadísticos diferentes.</p>
           </details>
+
+          <NetworkLab file={file} containerBytes={containerBytes?.length ?? null} selectedCodecLabel={selectedCodecLabel} />
 
           {file && <div className="metric-grid">
             <article><span>Bits originales</span><strong>{segmentation?.originalBitLength.toLocaleString('es-CO') ?? '—'}</strong></article>

@@ -13,14 +13,34 @@ const codecNames: Record<FileSignal['recommendation'], string> = {
 };
 
 function duration(ms: number) {
+  if (ms > 0 && ms < 0.01) return '< 0,01 ms';
   return ms >= 1000 ? `${number.format(ms / 1000)} s` : `${number.format(ms)} ms`;
+}
+
+function TimeBar({ label, time, scale }: {
+  label: string;
+  time: ReturnType<typeof estimateTransfer> | null;
+  scale: number;
+}) {
+  return (
+    <div className="network-time">
+      <div className="network-time-label"><span>{label}</span><strong>{time ? duration(time.totalMs) : 'Sin estimación'}</strong></div>
+      <div className="network-time-track" aria-hidden="true">
+        {time && scale > 0 && <>
+          <span className="network-time-latency" style={{ width: `${(time.totalMs - time.transmissionMs) / scale * 100}%` }} />
+          <span className="network-time-transfer" style={{ width: `${time.transmissionMs / scale * 100}%` }} />
+        </>}
+      </div>
+      {time && <small>{duration(time.totalMs - time.transmissionMs)} de latencia · {duration(time.transmissionMs)} de transferencia</small>}
+    </div>
+  );
 }
 
 export default function NetworkLab({ file, containerBytes, selectedCodecLabel }: Props) {
   const [signal, setSignal] = useState<FileSignal | null>(null);
   const [efficiency, setEfficiency] = useState(80);
-  const [rates, setRates] = useState<Record<string, number>>({ '5G': 100, '6G': 1000 });
-  const [latencies, setLatencies] = useState<Record<string, number>>({ '5G': 20, '6G': 5 });
+  const [rates, setRates] = useState(() => Object.fromEntries(NETWORK_PROFILES.map((profile) => [profile.generation, String(profile.throughputMbps)])));
+  const [latencies, setLatencies] = useState(() => Object.fromEntries(NETWORK_PROFILES.map((profile) => [profile.generation, String(profile.latencyMs)])));
 
   useEffect(() => {
     let active = true;
@@ -41,12 +61,24 @@ export default function NetworkLab({ file, containerBytes, selectedCodecLabel }:
             <h3 id="network-title">Simula el envío por 5G y 6G</h3>
             <p>Carga un archivo o elige un ejemplo. Después podrás comparar el tiempo estimado de envío del original y del contenedor .bitlab.</p>
           </div>
-          <span className="network-sim-label">SIMULACIÓN LOCAL</span>
         </div>
-        <a className="network-empty-action" href="#archivo">Elegir archivo</a>
+        <div className="network-links">
+          <a href="#archivo">Elegir archivo</a>
+          <a href="#control-errores">Probar el canal con texto</a>
+        </div>
       </section>
     );
   }
+
+  const estimates = NETWORK_PROFILES.map((profile) => {
+    const rate = Number(rates[profile.generation]);
+    const latency = Number(latencies[profile.generation]);
+    const valid = rate >= 0.1 && rate <= 100000 && latencies[profile.generation] !== '' && latency >= 0 && latency <= 100000;
+    const original = valid ? estimateTransfer(file.size, rate, latency, efficiency) : null;
+    const compressed = valid && containerBytes !== null ? estimateTransfer(containerBytes, rate, latency, efficiency) : null;
+    return { ...profile, original, compressed, valid };
+  });
+  const scale = Math.max(...estimates.flatMap(({ original, compressed }) => [original?.totalMs ?? 0, compressed?.totalMs ?? 0]));
 
   return (
     <section className="network-lab" id="redes" aria-labelledby="network-title">
@@ -55,12 +87,12 @@ export default function NetworkLab({ file, containerBytes, selectedCodecLabel }:
           <h3 id="network-title">Laboratorio de envío 5G / 6G</h3>
           <p>Simula cuánto tardaría en transmitirse el archivo cargado. Compara los bytes originales con el contenedor comprimido cuando esté disponible.</p>
         </div>
-        <span className="network-sim-label">SIMULACIÓN LOCAL</span>
+        <a className="network-jump" href="#control-errores">Experimentar con errores de bit</a>
       </div>
 
       <div className="network-source">
-        <div><span>Archivo de origen</span><strong>{file ? file.name : 'Carga un archivo en el compresor'}</strong></div>
-        <div><span>Tamaño original</span><strong>{file ? number.format(file.size) : '—'} bytes</strong></div>
+        <div><span>Archivo de origen</span><strong>{file.name}</strong></div>
+        <div><span>Tamaño original</span><strong>{number.format(file.size)} bytes</strong></div>
         <div><span>Contenedor .bitlab</span><strong>{containerBytes === null ? 'Pendiente de compresión' : `${number.format(containerBytes)} bytes`}</strong></div>
       </div>
 
@@ -70,27 +102,30 @@ export default function NetworkLab({ file, containerBytes, selectedCodecLabel }:
         <p>El modelo aplica esta eficiencia a la velocidad configurada. Incluye una latencia fija por transferencia; no modela congestión, retransmisiones ni cobertura.</p>
       </div>
 
+      <div className="network-chart-heading">
+        <h4>Tiempo total de envío</h4>
+        {scale > 0 && <p>Escala común de 0 a {duration(scale)}</p>}
+        <div className="network-chart-legend"><span>Latencia fija</span><span>Transferencia de datos</span></div>
+      </div>
       <div className="network-comparison">
-        {NETWORK_PROFILES.map((profile) => {
-          const rate = rates[profile.generation];
-          const latency = latencies[profile.generation];
-          const valid = Number.isFinite(rate) && rate > 0 && Number.isFinite(latency) && latency >= 0;
-          const original = file && valid ? estimateTransfer(file.size, rate, latency, efficiency) : null;
-          const compressed = containerBytes !== null && valid ? estimateTransfer(containerBytes, rate, latency, efficiency) : null;
+        {estimates.map(({ generation, note, original, compressed, valid }) => {
           const saved = original && compressed ? original.totalMs - compressed.totalMs : null;
           return (
-            <article className="network-profile" key={profile.generation}>
-              <div className="network-profile-head"><h4>{profile.generation}</h4><small>{profile.note}</small></div>
-              <div className="network-profile-inputs">
-                <label>Velocidad (Mb/s)<input type="number" min="0.1" max="100000" step="any" value={rate} onChange={(event) => setRates((current) => ({ ...current, [profile.generation]: Number(event.target.value) }))} /></label>
-                <label>Latencia (ms)<input type="number" min="0" max="100000" step="any" value={latency} onChange={(event) => setLatencies((current) => ({ ...current, [profile.generation]: Number(event.target.value) }))} /></label>
-              </div>
-              {!valid && <p className="network-invalid" role="alert">Ingresa una velocidad mayor que cero y una latencia no negativa.</p>}
+            <article className="network-profile" key={generation}>
+              <div className="network-profile-head"><h5>{generation}</h5><small>{note}</small></div>
               <div className="network-times">
-                <div><span>Original</span><strong>{original ? duration(original.totalMs) : '—'}</strong></div>
-                <div><span>.bitlab</span><strong>{compressed ? duration(compressed.totalMs) : '—'}</strong></div>
+                <TimeBar label="Archivo original" time={original} scale={scale} />
+                <TimeBar label="Contenedor .bitlab" time={compressed} scale={scale} />
               </div>
-              <p className="network-outcome">{saved === null ? 'Comprime el archivo para comparar ambos envíos.' : saved > 0 ? `${duration(saved)} menos al transmitir .bitlab` : saved < 0 ? `${duration(-saved)} más al transmitir .bitlab` : 'Mismo tiempo estimado para ambos tamaños'}</p>
+              <p className="network-outcome">
+                {!valid ? 'Corrige los parámetros para calcular el tiempo.' : saved === null ? 'Comprime el archivo para comparar ambos envíos.' : saved > 0 ? `${duration(saved)} menos al transmitir .bitlab` : saved < 0 ? `${duration(-saved)} más al transmitir .bitlab` : 'Mismo tiempo estimado para ambos tamaños'}
+              </p>
+              <fieldset className="network-profile-inputs">
+                <legend>Parámetros de {generation}</legend>
+                <label>Velocidad (Mb/s)<input type="number" min="0.1" max="100000" step="any" value={rates[generation]} onChange={(event) => setRates((current) => ({ ...current, [generation]: event.target.value }))} /></label>
+                <label>Latencia (ms)<input type="number" min="0" max="100000" step="any" value={latencies[generation]} onChange={(event) => setLatencies((current) => ({ ...current, [generation]: event.target.value }))} /></label>
+              </fieldset>
+              {!valid && <p className="network-invalid" role="alert">Indica una velocidad entre 0,1 y 100.000 Mb/s y una latencia entre 0 y 100.000 ms.</p>}
             </article>
           );
         })}

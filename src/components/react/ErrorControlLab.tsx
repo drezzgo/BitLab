@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ERROR_CODES, type ErrorCode } from '../../core/network/error-codes';
-import { MAX_CHANNEL_BYTES, type ErrorSimulationResult, type FrameExample } from '../../core/network/error-simulation';
+import { MAX_CHANNEL_BYTES, type ErrorSimulationOptions, type ErrorSimulationResult } from '../../core/network/error-simulation';
 import type { BitLabWorkerResult } from '../../workers/protocol';
+import ChannelReadout, { ChannelFlow, channelInteger, channelRunDescription } from './ChannelReadout';
 import { makeRequestId, startWorkerTask, type WorkerTask } from './worker-client';
 import '../../styles/error-control.css';
 
@@ -30,51 +31,8 @@ const descriptors: Record<ErrorCode, string> = {
   hamming74: 'Añade tres bits por cada cuatro de datos. Corrige un bit por bloque. Con dos o más puede corregir una posición equivocada.',
 };
 
-const integer = new Intl.NumberFormat('es-CO');
-const percent = new Intl.NumberFormat('es-CO', { style: 'percent', maximumSignificantDigits: 4 });
 const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
-
-function countPair(count: number, total: number) {
-  return `${integer.format(count)} / ${integer.format(total)}`;
-}
-
-function Bits({ value, reference }: { value: string; reference?: string }) {
-  return (
-    <code className="channel-bits">
-      {value.match(/.{1,8}/g)?.map((group, groupIndex) => (
-        <span className="channel-byte" key={groupIndex}>
-          {Array.from(group, (bit, index) => reference && bit !== reference[groupIndex * 8 + index]
-            ? <mark key={index}>{bit}</mark>
-            : bit)}
-        </span>
-      ))}
-    </code>
-  );
-}
-
-function FrameDetails({ example, code }: { example: FrameExample; code: ErrorCode }) {
-  let check = example.syndrome ? 'El receptor detectó una diferencia.' : 'La comprobación pasó.';
-  if (code === 'hamming74' && example.syndrome) {
-    check = example.flips === 1
-      ? `Corrección verificada en la posición ${example.syndrome}.`
-      : `El receptor invirtió la posición ${example.syndrome} por error.`;
-  }
-  return (
-    <details className="channel-frame">
-      <summary>
-        Trama {example.index + 1} · {example.flips} {example.flips === 1 ? 'inversión' : 'inversiones'} · {example.payloadErrors} {example.payloadErrors === 1 ? 'error residual' : 'errores residuales'}
-      </summary>
-      <p>{check}{example.flips > 0 && !example.syndrome && ' El simulador observó errores que el receptor no detectó.'}</p>
-      <dl>
-        <div><dt>Datos de origen</dt><dd><Bits value={example.original} /></dd></div>
-        <div><dt>Trama transmitida</dt><dd><Bits value={example.sent} /></dd></div>
-        <div><dt>Trama recibida</dt><dd><Bits value={example.received} reference={example.sent} /></dd></div>
-        <div><dt>Datos recuperados</dt><dd><Bits value={example.recovered} reference={example.original} /></dd></div>
-      </dl>
-    </details>
-  );
-}
 
 export default function ErrorControlLab({ file, containerBytes, onRecoverContainer }: Props) {
   const [chosenSource, setChosenSource] = useState<Source | null>(null);
@@ -98,21 +56,20 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
   const sourceMissing = source !== 'text' && sourceSize === undefined;
   const sizeInvalid = sourceSize !== undefined && source !== 'text' && (sourceSize === 0 || sourceSize > MAX_CHANNEL_BYTES);
 
-  async function simulate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (job.current || sourceMissing || sizeInvalid) return;
+  async function runTransmission(
+    runSource: Source,
+    runName: string,
+    options: ErrorSimulationOptions,
+    readBytes: () => ArrayBuffer | Promise<ArrayBuffer>,
+  ) {
+    if (job.current) return;
     const current: SimulationJob = {};
     job.current = current;
     setBusy(true);
     setError('');
     setRun(null);
-    const options = { code, probability: Number(probability) / 100, seed: Number(seed) };
     try {
-      let bytes: ArrayBuffer;
-      if (source === 'text') bytes = encoder.encode(input).buffer;
-      else if (source === 'file' && file) bytes = await file.arrayBuffer();
-      else if (source === 'container' && containerBytes) bytes = Uint8Array.from(containerBytes).buffer;
-      else return;
+      const bytes = await readBytes();
       if (job.current !== current) return;
       current.task = startWorkerTask<WorkerResult>({
         id: makeRequestId('channel'),
@@ -121,7 +78,7 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
         options,
       }, [bytes]);
       const { simulation } = await current.task.promise;
-      if (job.current === current) setRun({ ...options, source, name: source === 'text' ? 'Texto UTF-8' : name, result: simulation });
+      if (job.current === current) setRun({ ...options, source: runSource, name: runName, result: simulation });
     } catch (cause) {
       if (job.current === current) setError(cause instanceof Error ? cause.message : 'No se pudo simular el canal.');
     } finally {
@@ -132,10 +89,30 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
     }
   }
 
+  function simulate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (sourceMissing || sizeInvalid) return;
+    const options = { code, probability: Number(probability) / 100, seed: Number(seed) };
+    if (source === 'text') void runTransmission(source, 'Texto UTF-8', options, () => encoder.encode(input).buffer);
+    if (source === 'file' && file) void runTransmission(source, name, options, () => file.arrayBuffer());
+    if (source === 'container' && containerBytes) {
+      void runTransmission(source, name, options, () => Uint8Array.from(containerBytes).buffer);
+    }
+  }
+
   function cancel() {
     job.current?.task?.cancel();
     job.current = null;
     setBusy(false);
+  }
+
+  function simulateExample(exampleSeed: '1' | '3') {
+    setChosenSource('text');
+    setInput('Z');
+    setCode('hamming74');
+    setProbability('10');
+    setSeed(exampleSeed);
+    void runTransmission('text', 'Texto UTF-8', { code: 'hamming74', probability: 0.1, seed: Number(exampleSeed) }, () => encoder.encode('Z').buffer);
   }
 
   const metrics = run?.result;
@@ -146,75 +123,75 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
         <p>Codifica los datos, introduce inversiones de bits y comprueba qué pudo detectar o corregir el receptor.</p>
       </header>
 
-      <form onSubmit={simulate}>
-        <fieldset className="channel-fields" disabled={busy}>
-          <legend>Configurar la transmisión</legend>
-          <label>Datos de entrada
-            <select value={source} onChange={(event) => setChosenSource(event.target.value as Source)}>
-              <option value="text">Texto UTF-8</option>
-              <option value="file" disabled={!file}>Archivo original</option>
-              <option value="container" disabled={!containerBytes}>Contenedor .bitlab</option>
-            </select>
-          </label>
-          <label>Algoritmo
-            <select value={code} aria-describedby="channel-code-help" onChange={(event) => setCode(event.target.value as ErrorCode)}>
-              {Object.entries(ERROR_CODES).map(([id, option]) => <option key={id} value={id}>{option.label}</option>)}
-            </select>
-          </label>
-          {source === 'text' && <label className="channel-wide">Texto a transmitir
-            <textarea value={input} onChange={(event) => setInput(event.target.value)} rows={2} maxLength={8192} required />
-          </label>}
-          {source !== 'text' && <p className="channel-wide channel-help">
-            {sourceSize === undefined ? 'Carga un archivo o genera un .bitlab en el compresor.' : `${name} · ${integer.format(sourceSize)} bytes`}
-            {sizeInvalid && ' La simulación requiere una entrada de 1 byte a 1 MiB.'}
-          </p>}
-          <p className="channel-wide channel-help" id="channel-code-help">{descriptors[code]}</p>
-          <label>Probabilidad de error por bit (%)
-            <input type="number" min="0" max="100" step="any" inputMode="decimal" required value={probability} onChange={(event) => setProbability(event.target.value)} />
-          </label>
-          <label>Semilla reproducible
-            <input type="number" min="0" max="4294967295" step="1" inputMode="numeric" required value={seed} onChange={(event) => setSeed(event.target.value)} />
-          </label>
-        </fieldset>
-        <p className="channel-help">Cada bit se invierte de forma independiente con la misma probabilidad. Repite la entrada y los parámetros para obtener el mismo resultado.</p>
-        <div className="channel-actions">
-          <button className="primary-button" type="submit" disabled={busy || sourceMissing || sizeInvalid}>Simular transmisión</button>
-          {busy && <button className="secondary-button" type="button" onClick={cancel}>Cancelar</button>}
-        </div>
-      </form>
-      {error && <p className="error-banner" role="alert">{error}</p>}
-      <p className="channel-status" role="status">
-        {busy ? 'Simulando la transmisión…' : metrics && (metrics.residualBitErrors === 0
-          ? 'Los datos recuperados coinciden con el origen.'
-          : `Los datos recuperados difieren en ${integer.format(metrics.residualBitErrors)} bits.`)}
-      </p>
+      <div className="channel-workspace">
+        <form className="channel-form" onSubmit={simulate}>
+          <fieldset className="channel-fields" disabled={busy}>
+            <legend>Configurar la transmisión</legend>
+            <label>Datos de entrada
+              <select value={source} onChange={(event) => setChosenSource(event.target.value as Source)}>
+                <option value="text">Texto UTF-8</option>
+                <option value="file" disabled={!file}>Archivo original</option>
+                <option value="container" disabled={!containerBytes}>Contenedor .bitlab</option>
+              </select>
+            </label>
+            <label>Algoritmo
+              <select value={code} aria-describedby="channel-code-help" onChange={(event) => setCode(event.target.value as ErrorCode)}>
+                {Object.entries(ERROR_CODES).map(([id, option]) => <option key={id} value={id}>{option.label}</option>)}
+              </select>
+            </label>
+            {source === 'text' && <label className="channel-wide">Texto a transmitir
+              <textarea value={input} onChange={(event) => setInput(event.target.value)} rows={2} maxLength={8192} required />
+            </label>}
+            {source !== 'text' && <p className="channel-wide channel-help">
+              {sourceSize === undefined ? 'Carga un archivo o genera un .bitlab en el compresor.' : `${name} · ${channelInteger.format(sourceSize)} bytes`}
+              {sizeInvalid && ' La simulación requiere una entrada de 1 byte a 1 MiB.'}
+            </p>}
+            <p className="channel-wide channel-help" id="channel-code-help">{descriptors[code]}</p>
+            <div className="channel-field-pair channel-wide">
+              <label>Error por bit (%)
+                <input type="number" min="0" max="100" step="any" inputMode="decimal" required value={probability} onChange={(event) => setProbability(event.target.value)} aria-describedby="channel-noise-help" />
+              </label>
+              <label>Semilla
+                <input type="number" min="0" max="4294967295" step="1" inputMode="numeric" required value={seed} onChange={(event) => setSeed(event.target.value)} aria-describedby="channel-noise-help" />
+              </label>
+            </div>
+          </fieldset>
+          <p className="channel-help" id="channel-noise-help">El canal aplica esta probabilidad a cada bit. La semilla permite repetir el mismo experimento.</p>
+          <div className="channel-actions">
+            <button className="primary-button" type="submit" disabled={busy || sourceMissing || sizeInvalid}>Simular transmisión</button>
+            {busy && <button className="secondary-button" type="button" onClick={cancel}>Cancelar</button>}
+          </div>
+          {error && <p className="error-banner" role="alert">{error}</p>}
+        </form>
 
-      {run && metrics && <div className="channel-results">
-        <h4>Resultado de la transmisión</h4>
-        <p className="channel-help">{run.name} · {ERROR_CODES[run.code].label} · Probabilidad {percent.format(run.probability)} · Semilla {integer.format(run.seed)}</p>
-        <dl className="channel-metrics">
-          <div><dt>BER en el canal</dt><dd>{percent.format(metrics.channelBer)}</dd><dd>{countPair(metrics.channelBitErrors, metrics.transmittedBits)} bits</dd></div>
-          <div><dt>FER en el canal</dt><dd>{percent.format(metrics.channelFer)}</dd><dd>{countPair(metrics.channelFrameErrors, metrics.frames)} tramas</dd></div>
-          <div><dt>BER residual</dt><dd>{percent.format(metrics.residualBer)}</dd><dd>{countPair(metrics.residualBitErrors, metrics.payloadBits)} bits de datos</dd></div>
-          <div><dt>FER residual</dt><dd>{percent.format(metrics.residualFer)}</dd><dd>{countPair(metrics.residualFrameErrors, metrics.frames)} tramas con datos erróneos</dd></div>
-          <div><dt>Tasa de código</dt><dd>{percent.format(metrics.codeRate)}</dd><dd>{countPair(metrics.payloadBits, metrics.transmittedBits)} bits útiles / enviados</dd></div>
-          <div><dt>Redundancia</dt><dd>{integer.format(metrics.redundancyBits)} bits</dd><dd>{percent.format(1 - metrics.codeRate)} de lo enviado</dd></div>
-        </dl>
-        <dl className="channel-counts">
-          <div><dt>Tramas detectadas</dt><dd>{integer.format(metrics.detectedFrames)}</dd></div>
-          <div><dt>Con errores sin detectar</dt><dd>{integer.format(metrics.undetectedFrames)}</dd></div>
-          <div><dt>Correcciones verificadas</dt><dd>{run.code === 'hamming74' ? integer.format(metrics.correctedFrames) : 'No aplica'}</dd></div>
-          <div><dt>Correcciones equivocadas</dt><dd>{run.code === 'hamming74' ? integer.format(metrics.miscorrectedFrames) : 'No aplica'}</dd></div>
-        </dl>
-        {run.source === 'text' && <p className="channel-text">Texto recuperado <samp>{decoder.decode(metrics.recovered)}</samp></p>}
-        {run.source === 'container' && metrics.residualBitErrors === 0 &&
-          <button className="secondary-button" type="button" onClick={() => onRecoverContainer(
-            new File([metrics.recovered], run.name, { type: 'application/x-bitlab' }),
-          )}>Abrir .bitlab recibido en recuperación</button>}
-        <h4>Comparación bit a bit</h4>
-        <p className="channel-help">Se muestran las primeras tramas y la primera con errores si aparece más adelante. El resaltado indica diferencias.</p>
-        {metrics.examples.map((example) => <FrameDetails key={example.index} example={example} code={run.code} />)}
-      </div>}
+        <div className="channel-monitor">
+          <ChannelFlow />
+          <div className="channel-examples">
+            <p>Ejemplos de Hamming</p>
+            <button className="ghost-button" type="button" disabled={busy} onClick={() => simulateExample('1')}>Simular un bit invertido</button>
+            <button className="ghost-button" type="button" disabled={busy} onClick={() => simulateExample('3')}>Simular dos bits en un bloque</button>
+          </div>
+          <p className="channel-status" data-outcome={metrics ? (metrics.residualBitErrors === 0 ? 'match' : 'changed') : undefined} role="status">
+            {busy ? 'Simulando la transmisión…' : metrics && (metrics.residualBitErrors === 0
+              ? 'Los datos recuperados coinciden con el origen.'
+              : metrics.residualBitErrors === 1
+                ? 'Queda un bit diferente en los datos recuperados.'
+                : `Quedan ${channelInteger.format(metrics.residualBitErrors)} bits diferentes en los datos recuperados.`)}
+          </p>
+          {!run && !busy && <div className="channel-empty">
+            <h4>¿Qué recuperará el receptor?</h4>
+            <p>Simula la transmisión para ver una trama paso a paso y medir cuántos errores llegaron a los datos recuperados.</p>
+          </div>}
+          {run && metrics && <div className="channel-results">
+            <ChannelReadout result={metrics} code={run.code} description={channelRunDescription(run.name, run.code, run.probability, run.seed)} />
+            {run.source === 'text' && <p className="channel-text">Texto recuperado <samp>{decoder.decode(metrics.recovered)}</samp></p>}
+            {run.source === 'container' && metrics.residualBitErrors === 0 &&
+              <button className="secondary-button" type="button" onClick={() => onRecoverContainer(
+                new File([metrics.recovered], run.name, { type: 'application/x-bitlab' }),
+              )}>Abrir .bitlab recibido en recuperación</button>}
+          </div>}
+        </div>
+      </div>
 
       <details className="channel-reference">
         <summary>Cómo se relaciona este laboratorio con 5G y 6G</summary>

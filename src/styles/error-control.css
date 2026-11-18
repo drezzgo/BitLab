@@ -2,14 +2,16 @@
   margin-block-start: 24px;
   padding: clamp(16px, 3vw, 32px);
   border: 1px solid var(--line-strong);
+  border-top-color: var(--ud-gold);
   border-radius: 16px;
   background: var(--surface);
 }
 
+.channel-heading { margin-bottom: 24px; }
 .channel-heading h3 {
-  margin: 0 0 8px;
-  font-size: clamp(1.35rem, 2.7vw, 1.85rem);
-  line-height: 1.2;
+  margin: 0 0 6px;
+  font: 400 clamp(2.25rem, 4vw, 3.25rem) / .98 var(--font-display);
+  text-wrap: balance;
 }
 
 .channel-heading p, .channel-reference p {
@@ -18,31 +20,40 @@
   color: var(--ink-soft);
 }
 
+.channel-workspace {
+  display: grid;
+  grid-template-columns: minmax(245px, .82fr) minmax(0, 2fr);
+  gap: clamp(18px, 3vw, 32px);
+  align-items: start;
+}
+
+.channel-form { padding: 18px; border-radius: 12px; background: var(--canvas-raised); }
 .channel-fields {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 18px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
   min-inline-size: 0;
-  margin: 22px 0 0;
-  padding: 14px 0 0;
+  margin: 0;
+  padding: 0;
   border: 0;
 }
 
-.channel-fields legend, .channel-results h4 {
+.channel-fields legend, .channel-monitor h4 {
   padding: 0;
-  font-size: 1.05rem;
+  font-size: 1rem;
   font-weight: 800;
 }
 
-.channel-fields label {
+.channel-fields legend { margin: 0 0 16px; }
+.channel-fields label, .channel-inspector-head label {
   display: grid;
   gap: 5px;
   align-content: start;
-  font-size: .9rem;
+  font-size: .83rem;
   font-weight: 700;
 }
 
-.channel-fields :is(select, input, textarea) {
+.channel-form :is(select, input, textarea), .channel-inspector select {
   width: 100%;
   min-width: 0;
   min-height: 44px;
@@ -50,60 +61,106 @@
   color: var(--ink);
   border: 1px solid var(--line-strong);
   border-radius: 7px;
-  background: var(--canvas-raised);
+  background: var(--surface);
   font: inherit;
 }
 
 .channel-fields textarea { resize: vertical; }
 .channel-wide { grid-column: 1 / -1; }
-.channel-lab .channel-help { margin: 8px 0 0; color: var(--muted); font-size: .86rem; overflow-wrap: anywhere; }
+.channel-field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.channel-lab .channel-help { margin: 8px 0 0; color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; }
 .channel-lab .channel-fields .channel-help { margin: 0; }
 .channel-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-.channel-status { margin: 16px 0 0; font-weight: 700; }
-.channel-status:empty { margin: 0; }
+.channel-actions .primary-button { flex: 1 0 auto; }
+.channel-examples { display: flex; flex-wrap: wrap; align-items: center; gap: 0 14px; margin-top: 6px; }
+.channel-examples p { margin: 0; color: var(--muted); font-size: .8rem; }
+.channel-examples button { padding-inline: 0; color: var(--neon-gold); font-size: .84rem; text-align: start; text-decoration: underline; text-underline-offset: 3px; }
+.channel-monitor { min-width: 0; }
 
-.channel-results {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line-strong);
-}
-
-.channel-results h4 { margin: 0; }
-.channel-metrics, .channel-counts {
+.channel-flow {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 14px 0 18px;
-  border-top: 1px solid var(--line-strong);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style-position: inside;
+  background: var(--canvas-raised);
+  border-block: 1px solid var(--line-strong);
 }
 
-.channel-results :is(.channel-metrics, .channel-counts) div {
-  min-width: 0;
-  padding: 10px 12px 10px 0;
-  border-bottom: 1px solid var(--line-strong);
+.channel-flow li { padding: 10px 8px; font-size: .84rem; }
+.channel-flow li + li { border-inline-start: 1px solid var(--line); }
+.channel-flow li::marker { color: var(--neon-gold); font-weight: 800; }
+.channel-flow strong { font-weight: 800; }
+.channel-flow span { display: block; color: var(--muted); font-size: .75rem; }
+.channel-status { margin: 14px 0; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 8px; font-size: .9rem; font-weight: 800; }
+.channel-status:empty { margin: 0; padding: 0; border: 0; }
+.channel-status[data-outcome="match"] { color: var(--neon-gold); border-color: var(--ud-gold); }
+.channel-status[data-outcome="changed"] { color: var(--ink); border-color: var(--neon-red); background: var(--danger-soft); }
+.channel-empty { padding: 32px 14px; border-bottom: 1px solid var(--line-strong); }
+.channel-empty h4, .channel-result-heading h4 { margin: 0 0 4px; }
+.channel-empty p { max-width: 50ch; margin: 0; color: var(--muted); font-size: .9rem; }
+.channel-result-heading .channel-help { margin-top: 0; }
+
+.channel-inspector { margin: 18px 0; padding: 14px; border-radius: 12px; background: var(--canvas-raised); }
+.channel-inspector-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.channel-inspector-head h4 { margin: 0; }
+.channel-inspector-head label { max-width: 100%; }
+.channel-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 12px 0; color: var(--ink-soft); font-size: .76rem; }
+.channel-legend span::before {
+  display: inline-block;
+  width: .7rem;
+  height: .7rem;
+  margin-inline-end: .35rem;
+  border: 1px solid var(--neon-gold);
+  border-radius: 2px;
+  content: '';
 }
+.channel-legend .channel-legend-error::before { background: var(--neon-red); border-color: var(--neon-red); }
+.channel-frames { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.channel-frames dt { margin-bottom: 4px; color: var(--ink-soft); font-size: .8rem; font-weight: 700; }
+.channel-frames dd { margin: 0; }
+.channel-bits { display: flex; flex-wrap: wrap; gap: 5px 8px; padding: 8px; color: var(--ink); border: 0; background: var(--surface-2); }
+.channel-byte { display: inline-flex; flex-wrap: wrap; gap: 2px; }
+.channel-bit { display: grid; place-items: center; min-width: 1.25rem; min-height: 1.45rem; padding: 0 2px; border: 1px solid transparent; border-radius: 3px; }
+.channel-bit[data-role="redundancy"] { border-color: var(--ud-gold); color: var(--neon-gold); }
+.channel-bit[data-changed="true"] { background: var(--neon-red); }
+.channel-bit mark { color: var(--canvas); background: transparent; font-weight: 800; }
+.channel-frame-note { margin: 12px 0 0; color: var(--ink-soft); font-size: .84rem; }
 
-.channel-results dt { color: var(--ink-soft); font-size: .82rem; }
-.channel-results dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.channel-metrics dd:first-of-type { font-size: 1.18rem; font-weight: 800; }
-.channel-metrics dd + dd { color: var(--muted); font-size: .78rem; }
-.channel-counts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.channel-counts dd { font-weight: 800; }
-.channel-text samp { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
-.channel-results .secondary-button { margin-bottom: 16px; }
+.channel-results-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; }
+.channel-metrics { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: start; font-variant-numeric: tabular-nums; }
+.channel-metrics caption, .channel-efficiency h4 { margin: 0 0 8px; text-align: start; font-size: .9rem; font-weight: 800; }
+.channel-metrics :is(th, td) { padding: 6px; border-bottom: 1px solid var(--line-strong); text-align: start; vertical-align: top; overflow-wrap: anywhere; }
+.channel-metrics thead th { color: var(--ink-soft); font-size: .75rem; }
+.channel-metrics tbody th, .channel-metrics strong { font-size: .9rem; }
+.channel-metrics small { display: block; color: var(--muted); font-size: .74rem; font-weight: 500; }
+.channel-efficiency dl { margin: 10px 0 0; }
+.channel-efficiency dl div { margin-bottom: 5px; }
+.channel-code-strip { display: flex; block-size: 10px; overflow: hidden; border-radius: 3px; background: var(--neon-gold); }
+.channel-code-strip span { background: var(--ink-soft); }
+.channel-counts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 18px 0 12px; border-block: 1px solid var(--line-strong); }
+.channel-counts > div { padding: 8px 0; }
+.channel-results dt { color: var(--ink-soft); font-size: .8rem; }
+.channel-results dd { margin: 0; overflow-wrap: anywhere; }
+.channel-counts dd, .channel-efficiency dd { font-size: .9rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.channel-text { margin: 12px 0 0; font-size: .86rem; font-weight: 700; }
+.channel-text samp { display: block; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-soft); font-weight: 400; }
 
-.channel-frame, .channel-reference { margin-top: 12px; border-top: 1px solid var(--line-strong); }
+.channel-reference { margin-top: 20px; border-top: 1px solid var(--line-strong); }
 .channel-lab summary { min-height: 44px; padding-block: 10px; cursor: pointer; font-weight: 700; }
 .channel-lab summary:hover, .channel-reference a { color: var(--neon-gold); }
 .channel-lab :focus-visible { outline: 2px solid var(--neon-gold); outline-offset: 2px; }
-.channel-frame p { margin: 0; font-size: .86rem; }
-.channel-frame dl { display: grid; gap: 8px; margin: 12px 0 16px; }
-.channel-frame dt { margin-bottom: 4px; }
-.channel-bits { display: flex; flex-wrap: wrap; gap: 2px 8px; max-width: 100%; padding: 6px 8px; }
-.channel-byte { white-space: nowrap; }
-.channel-bits mark { color: var(--canvas); background: var(--neon-gold); font-weight: 800; }
 .channel-reference p + p { margin-top: 10px; }
 
-@media (max-width: 600px) {
-  .channel-fields { grid-template-columns: minmax(0, 1fr); }
-  .channel-metrics, .channel-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 820px) {
+  .channel-workspace { grid-template-columns: minmax(0, 1fr); }
+  .channel-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 540px) {
+  .channel-form { padding: 14px; }
+  .channel-fields, .channel-results-grid, .channel-frames { grid-template-columns: minmax(0, 1fr); }
+  .channel-flow, .channel-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .channel-flow li:nth-child(3) { border-inline-start: 0; }
+  .channel-flow li:nth-child(n + 3) { border-top: 1px solid var(--line); }
 }

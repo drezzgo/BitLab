@@ -26,9 +26,9 @@ interface Run {
 }
 
 const descriptors: Record<ErrorCode, string> = {
-  parity: 'Añade un bit por trama de hasta 32 bytes. Detecta un número impar de inversiones.',
-  crc16: 'Añade 16 bits por trama de hasta 32 bytes. Detecta errores mediante un resto polinómico.',
-  hamming74: 'Añade tres bits por cada cuatro de datos. Corrige un bit por bloque. Con dos o más puede corregir una posición equivocada.',
+  parity: 'Añade un bit por trama. Avisa si cambia una cantidad impar de bits. Los datos llegan con los cambios del canal.',
+  crc16: 'Añade 16 bits de comprobación por trama. El receptor verifica ese valor para detectar cambios. Los datos llegan con los cambios del canal.',
+  hamming74: 'Añade tres bits de comprobación por cada cuatro de datos. Corrige un cambio por bloque. Con dos o más puede elegir una posición equivocada.',
 };
 
 const encoder = new TextEncoder();
@@ -120,7 +120,7 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
     <section className="channel-lab" id="control-errores" aria-labelledby="channel-title">
       <header className="channel-heading">
         <h3 id="channel-title">Control de errores del canal</h3>
-        <p>Codifica los datos, introduce inversiones de bits y comprueba qué pudo detectar o corregir el receptor.</p>
+        <p>Sigue el recorrido de un mensaje y explica qué cambió durante el envío y qué pudo recuperar el receptor.</p>
       </header>
 
       <div className="channel-workspace">
@@ -156,7 +156,7 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
               </label>
             </div>
           </fieldset>
-          <p className="channel-help" id="channel-noise-help">El canal aplica esta probabilidad a cada bit. La semilla permite repetir el mismo experimento.</p>
+          <p className="channel-help" id="channel-noise-help">Con 10% de error, cada bit tiene 1 posibilidad en 10 de cambiar. Usa la misma semilla y los mismos parámetros para repetir la prueba.</p>
           <div className="channel-actions">
             <button className="primary-button" type="submit" disabled={busy || sourceMissing || sizeInvalid}>Simular transmisión</button>
             {busy && <button className="secondary-button" type="button" onClick={cancel}>Cancelar</button>}
@@ -167,20 +167,28 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
         <div className="channel-monitor">
           <ChannelFlow />
           <div className="channel-examples">
-            <p>Ejemplos de Hamming</p>
-            <button className="ghost-button" type="button" disabled={busy} onClick={() => simulateExample('1')}>Simular un bit invertido</button>
-            <button className="ghost-button" type="button" disabled={busy} onClick={() => simulateExample('3')}>Simular dos bits en un bloque</button>
+            <p>Demostración con Hamming</p>
+            <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateExample('1')}>
+              <strong>Un bit cambiado</strong><span>Ver cómo se recupera el dato</span>
+            </button>
+            <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateExample('3')}>
+              <strong>Dos bits en la misma trama</strong><span>Ver por qué el receptor se equivoca</span>
+            </button>
           </div>
           <p className="channel-status" data-outcome={metrics ? (metrics.residualBitErrors === 0 ? 'match' : 'changed') : undefined} role="status">
             {busy ? 'Simulando la transmisión…' : metrics && (metrics.residualBitErrors === 0
-              ? 'Los datos recuperados coinciden con el origen.'
+              ? 'Los datos recuperados coinciden con el original.'
               : metrics.residualBitErrors === 1
                 ? 'Queda un bit diferente en los datos recuperados.'
                 : `Quedan ${channelInteger.format(metrics.residualBitErrors)} bits diferentes en los datos recuperados.`)}
           </p>
           {!run && !busy && <div className="channel-empty">
-            <h4>¿Qué recuperará el receptor?</h4>
-            <p>Simula la transmisión para ver una trama paso a paso y medir cuántos errores llegaron a los datos recuperados.</p>
+            <h4>Cómo leer la demostración</h4>
+            <ol>
+              <li>Ejecuta «Un bit cambiado» y mira la posición resaltada en la trama recibida.</li>
+              <li>Compara los datos recuperados con los originales. Deben coincidir.</li>
+              <li>Ejecuta el segundo ejemplo y observa qué dato sigue distinto.</li>
+            </ol>
           </div>}
           {run && metrics && <div className="channel-results">
             <ChannelReadout result={metrics} code={run.code} description={channelRunDescription(run.name, run.code, run.probability, run.seed)} />
@@ -193,6 +201,15 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
         </div>
       </div>
 
+      <details className="channel-reference">
+        <summary>Qué significa cada término</summary>
+        <dl className="channel-glossary">
+          <div><dt>Bit y trama</dt><dd>Un bit vale 0 o 1. Una trama es el grupo de bits que se envía y comprueba en conjunto.</dd></div>
+          <div><dt>Redundancia</dt><dd>Bits extra que se añaden para comprobar la trama. La tasa de código es la fracción de bits enviados que corresponde a datos originales.</dd></div>
+          <div><dt>Detectar y corregir</dt><dd>Detectar es advertir que una trama cambió. Corregir es recuperar el valor original. Hamming (7,4) puede hacer ambas cosas cuando cambia un solo bit por bloque.</dd></div>
+          <div><dt>Error sin detectar y error residual</dt><dd>Un error sin detectar pasa la comprobación. Un error residual es una diferencia que queda en los datos después de recuperarlos.</dd></div>
+        </dl>
+      </details>
       <details className="channel-reference">
         <summary>Cómo se relaciona este laboratorio con 5G y 6G</summary>
         <p>En <a href="https://www.etsi.org/deliver/etsi_ts/138200_138299/138212/19.02.00_60/ts_138212v190200p.pdf">5G NR (3GPP TS 38.212)</a>, LDPC protege los canales compartidos de datos UL-SCH y DL-SCH. Polar se usa en BCH y DCI, y en determinados casos de UCI. BitLab ejecuta paridad, CRC-16 y Hamming con tramas didácticas. Su CRC-16 comparte el polinomio de la especificación NR.</p>

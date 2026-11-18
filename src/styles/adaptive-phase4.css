@@ -10,26 +10,15 @@
   padding: 28px;
 }
 
-/* Keep scroll behavior but remove visually noisy bars. */
+/* Keep scroll areas discoverable for mouse and keyboard users. */
 .adaptive-dialog,
 .format-dialog,
 .audit-dialog,
 .comparison-table-wrap,
 .before-after-grid pre,
 .frequency-panel {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.adaptive-dialog::-webkit-scrollbar,
-.format-dialog::-webkit-scrollbar,
-.audit-dialog::-webkit-scrollbar,
-.comparison-table-wrap::-webkit-scrollbar,
-.before-after-grid pre::-webkit-scrollbar,
-.frequency-panel::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+  scrollbar-color: var(--line-strong) var(--canvas-raised);
+  scrollbar-width: thin;
 }
 
 .adaptive-feature-index {

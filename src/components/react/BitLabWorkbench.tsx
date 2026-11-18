@@ -93,7 +93,7 @@ interface DecodeResult {
 
 export default function BitLabWorkbench() {
   const [mode, setMode] = useState<Mode>('encode');
-  const [codec, setCodec] = useState<EncodeCodec>('huffman');
+  const [codec, setCodec] = useState<EncodeCodec>('auto');
   const [file, setFile] = useState<File | null>(null);
   const [wordSizeBits, setWordSizeBits] = useState(8);
   const [containerBytes, setContainerBytes] = useState<Uint8Array | null>(null);
@@ -309,9 +309,6 @@ export default function BitLabWorkbench() {
       ? lz77CandidateMetrics
       : null;
 
-  const byteOrientedCodec =
-    codec === 'auto' || codec === 'rle-huffman' || codec === 'lz77-huffman';
-
   function cancelOperation() {
     taskRef.current?.cancel();
     taskRef.current = null;
@@ -331,95 +328,80 @@ export default function BitLabWorkbench() {
     <section className="unified-workbench adaptive-workbench" aria-labelledby="tool-title">
       <div className="tool-heading">
         <div>
-          <p className="eyebrow">COMPRESOR BITLAB</p>
-          <h2 id="tool-title">Comprime, mide y recupera desde un mismo lugar.</h2>
+          <h2 id="tool-title">Comprime o recupera archivos.</h2>
           <p>
-            Puedes elegir una estrategia manualmente o dejar que BitLab las pruebe todas.
-            El modo automático conserva el menor contenedor completo que pueda recuperar exactamente el archivo.
+            Elige un archivo. BitLab puede buscar el menor contenedor reversible o usar la estrategia que selecciones.
           </p>
         </div>
-        <span className="local-badge">procesamiento local</span>
       </div>
 
-      <div className="mode-switch" role="tablist" aria-label="Operación">
-        <button type="button" role="tab" aria-selected={mode === 'encode'} className={mode === 'encode' ? 'active' : ''} onClick={() => changeMode('encode')}>
+      <div className="mode-switch" role="group" aria-label="Operación">
+        <button type="button" aria-pressed={mode === 'encode'} className={mode === 'encode' ? 'active' : ''} onClick={() => changeMode('encode')}>
           Comprimir archivo
         </button>
-        <button type="button" role="tab" aria-selected={mode === 'decode'} className={mode === 'decode' ? 'active' : ''} onClick={() => changeMode('decode')}>
+        <button type="button" aria-pressed={mode === 'decode'} className={mode === 'decode' ? 'active' : ''} onClick={() => changeMode('decode')}>
           Recuperar .bitlab
         </button>
       </div>
 
       {mode === 'encode' ? (
         <>
-          <details className="demo-sources">
-            <summary>Probar con fuentes reproducibles</summary>
-            <div>
-              <button type="button" onClick={() => chooseDemo('repetitive')}>Texto repetitivo</button>
-              <button type="button" onClick={() => chooseDemo('structured')}>JSON estructurado</button>
-              <button type="button" onClick={() => chooseDemo('random')}>Datos pseudoaleatorios</button>
-            </div>
-            <p>
-              Los ejemplos permiten contrastar rápidamente fuentes con comportamientos estadísticos diferentes
-              sin sustituir las pruebas con archivos reales.
-            </p>
-          </details>
-
           <div className="workflow-grid">
             <FilePickerPreview file={file} onFile={setFile} />
             <div className="settings-panel">
-              <div className="panel-number">01</div>
-              <label htmlFor="word-size">Tamaño de palabra</label>
-              <p>{codec === 'auto'
-                ? 'Automático explora varias configuraciones de Huffman y LZ77; el selector N manual queda desactivado durante la búsqueda.'
-                : byteOrientedCodec
-                  ? 'RLE + Huffman y LZ77 + Huffman trabajan sobre bytes y usan N = 8.'
-                  : <>Configura el símbolo lógico entre 2 y 65.535 bits dentro de <code>.bitlab</code> v1.</>}</p>
-              <div className="number-control">
-                <input
-                  id="word-size"
-                  type="number"
-                  min={MIN_WORD_SIZE_BITS}
-                  max={MAX_WORD_SIZE_BITS}
-                  value={wordSizeBits}
-                  disabled={byteOrientedCodec}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    if (Number.isInteger(value) && value >= MIN_WORD_SIZE_BITS && value <= MAX_WORD_SIZE_BITS) {
-                      setWordSizeBits(value);
-                    }
-                  }}
-                />
-                <span>bits</span>
-              </div>
-              <div className="quick-sizes">
-                {QUICK_SIZES.map((size) => (
-                  <button key={size} type="button" disabled={byteOrientedCodec} className={size === wordSizeBits ? 'active' : ''} onClick={() => setWordSizeBits(size)}>
-                    {size}
-                  </button>
-                ))}
-              </div>
-
               <div className="codec-picker" aria-label="Estrategia de salida">
-                <span>Estrategia disponible</span>
+                <span>Estrategia de compresión</span>
                 <div>
-                  <button type="button" className={`auto-codec ${codec === 'auto' ? 'active' : ''}`} onClick={() => selectCodec('auto')}>
+                  <button type="button" aria-pressed={codec === 'auto'} className={`auto-codec ${codec === 'auto' ? 'active' : ''}`} onClick={() => selectCodec('auto')}>
                     <strong>Automático</strong><small>prueba todo y conserva el menor .bitlab</small>
                   </button>
-                  <button type="button" className={codec === 'huffman' ? 'active' : ''} onClick={() => selectCodec('huffman')}>
+                  <button type="button" aria-pressed={codec === 'huffman'} className={codec === 'huffman' ? 'active' : ''} onClick={() => selectCodec('huffman')}>
                     <strong>Huffman</strong><small>referencia estadística</small>
                   </button>
-                  <button type="button" className={codec === 'rle-huffman' ? 'active' : ''} onClick={() => selectCodec('rle-huffman')}>
+                  <button type="button" aria-pressed={codec === 'rle-huffman'} className={codec === 'rle-huffman' ? 'active' : ''} onClick={() => selectCodec('rle-huffman')}>
                     <strong>RLE + Huffman</strong><small>runs consecutivos</small>
                   </button>
-                  <button type="button" className={codec === 'lz77-huffman' ? 'active' : ''} onClick={() => selectCodec('lz77-huffman')}>
+                  <button type="button" aria-pressed={codec === 'lz77-huffman'} className={codec === 'lz77-huffman' ? 'active' : ''} onClick={() => selectCodec('lz77-huffman')}>
                     <strong>LZ77 + Huffman</strong><small>secuencias repetidas</small>
                   </button>
-                  <button type="button" className={codec === 'raw' ? 'active' : ''} onClick={() => selectCodec('raw')}>
+                  <button type="button" aria-pressed={codec === 'raw'} className={codec === 'raw' ? 'active' : ''} onClick={() => selectCodec('raw')}>
                     <strong>RAW</strong><small>sin compresión</small>
                   </button>
                 </div>
               </div>
+
+              {codec === 'huffman' && (
+                <div className="word-size-settings">
+                  <label htmlFor="word-size">Tamaño de palabra</label>
+                  <p>Define el símbolo lógico para Huffman, entre 2 y 65.535 bits.</p>
+                  <div className="number-control">
+                    <input
+                      id="word-size"
+                      type="number"
+                      min={MIN_WORD_SIZE_BITS}
+                      max={MAX_WORD_SIZE_BITS}
+                      value={wordSizeBits}
+                      onChange={(event) => {
+                        const value = Number(event.target.value);
+                        if (Number.isInteger(value) && value >= MIN_WORD_SIZE_BITS && value <= MAX_WORD_SIZE_BITS) {
+                          setWordSizeBits(value);
+                        }
+                      }}
+                    />
+                    <span>bits</span>
+                  </div>
+                  <details className="quick-sizes-details">
+                    <summary>Elegir un tamaño frecuente</summary>
+                    <div className="quick-sizes">
+                      {QUICK_SIZES.map((size) => (
+                        <button key={size} type="button" aria-pressed={size === wordSizeBits} className={size === wordSizeBits ? 'active' : ''} onClick={() => setWordSizeBits(size)}>
+                          {size}
+                        </button>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              )}
 
               <button className="primary-button full-button" type="button" disabled={!file || busy} onClick={encode}>
                 {busy
@@ -438,12 +420,22 @@ export default function BitLabWorkbench() {
             </div>
           </div>
 
-          <div className="metric-grid">
+          <details className="demo-sources">
+            <summary>¿No tienes un archivo? Prueba un ejemplo</summary>
+            <div>
+              <button type="button" onClick={() => chooseDemo('repetitive')}>Texto repetitivo</button>
+              <button type="button" onClick={() => chooseDemo('structured')}>JSON estructurado</button>
+              <button type="button" onClick={() => chooseDemo('random')}>Datos pseudoaleatorios</button>
+            </div>
+            <p>Compara fuentes con comportamientos estadísticos diferentes.</p>
+          </details>
+
+          {file && <div className="metric-grid">
             <article><span>Bits originales</span><strong>{segmentation?.originalBitLength.toLocaleString('es-CO') ?? '—'}</strong></article>
             <article><span>Símbolos</span><strong>{segmentation?.symbolCount.toLocaleString('es-CO') ?? '—'}</strong></article>
             <article><span>Padding</span><strong>{segmentation ? `${segmentation.paddingBits} bits` : '—'}</strong></article>
             <article><span>Estrategia</span><strong>{codec === 'auto' ? 'AUTOMÁTICO' : codec === 'huffman' ? 'HUFFMAN' : codec === 'rle-huffman' ? 'RLE + HUFFMAN' : codec === 'lz77-huffman' ? 'LZ77 + HUFFMAN' : 'RAW'}</strong></article>
-          </div>
+          </div>}
 
           {containerBytes && file && downloadUrl && (
             <section className="output-panel adaptive-output">
@@ -518,7 +510,6 @@ export default function BitLabWorkbench() {
               hint="Selecciona un contenedor .bitlab generado por la herramienta"
             />
             <div className="settings-panel decode-panel">
-              <div className="panel-number">02</div>
               <strong>Recuperación reversible</strong>
               <ul>
                 <li>Valida firma, versión y longitudes.</li>
@@ -570,7 +561,7 @@ export default function BitLabWorkbench() {
         </>
       )}
 
-      {error && <p className="error-banner">{error}</p>}
+      {error && <p className="error-banner" role="alert">{error}</p>}
     </section>
   );
 }

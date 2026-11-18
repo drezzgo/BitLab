@@ -138,6 +138,7 @@ export function restoreWithRegisteredCodec(
 }
 
 export type {
+  CodecEncodeOptions,
   CodecEncodeResult,
   CodecInput,
   CodecMetrics,

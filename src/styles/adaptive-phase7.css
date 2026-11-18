@@ -212,7 +212,7 @@
 .benchmark-method-note {
   margin: 12px 0 0;
   padding: 10px 12px;
-  border-left: 2px solid var(--ud-gold);
+  border-left: 1px solid var(--ud-gold);
   background: rgba(180,151,57,.05);
   color: var(--muted);
   font-size: 10px;

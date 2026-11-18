@@ -37,7 +37,9 @@ export default function FilePickerPreview({
         <FilePreview file={file} />
       ) : (
         <div className="empty-picker">
-          <span className="pixel-upload" aria-hidden="true">⇧</span>
+          <svg className="upload-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <path d="M24 31V8m0 0-9 9m9-9 9 9M9 30v8a3 3 0 0 0 3 3h24a3 3 0 0 0 3-3v-8" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
           <strong>Selecciona o arrastra un archivo</strong>
           <small>{hint}</small>
         </div>
@@ -58,8 +60,12 @@ export default function FilePickerPreview({
         ref={inputRef}
         className="sr-file-input"
         type="file"
+        aria-label="Seleccionar archivo"
         accept={accept}
-        onChange={(event) => onFile(event.target.files?.[0] ?? null)}
+        onChange={(event) => {
+          onFile(event.target.files?.[0] ?? null);
+          event.target.value = '';
+        }}
       />
     </div>
   );

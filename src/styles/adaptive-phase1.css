@@ -313,7 +313,7 @@
 .adaptive-format-flow span {
   padding: 8px 10px;
   border: 1px solid var(--line);
-  border-left: 2px solid var(--ud-gold);
+  border-left: 1px solid var(--ud-gold);
   border-radius: 6px;
   background: var(--surface);
   color: var(--ink-soft);

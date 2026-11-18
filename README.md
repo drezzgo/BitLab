@@ -21,6 +21,9 @@ El procesamiento se realiza localmente en el navegador; BitLab no necesita un ba
 - comparador de tamaños de palabra sobre el mismo archivo;
 - fuentes reproducibles y casos válidos BMP, PNG, JPEG, PDF y ZIP;
 - recuperación de contenedores actuales y compatibilidad con contenedores anteriores sin metadata de integridad.
+- optimización automática entre estrategias y parámetros medidos por tamaño completo;
+- laboratorio local de envío 5G/6G con velocidad, latencia y eficiencia editables;
+- árbol de decisión didáctico inspirado en IA que explica una sugerencia de codec.
 
 ## Arquitectura
 
@@ -35,7 +38,9 @@ TypeScript core
   ├─ bits y segmentación
   ├─ estadísticas
   ├─ Huffman
+  ├─ registro de codecs y optimizador
   ├─ contenedor
+  ├─ simulación de transferencia
   ├─ integridad
   ├─ interpretación
   └─ comparación
@@ -80,15 +85,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/final-check.ps
 - `docs/VALIDATION.md`
 - `docs/ACADEMIC_DEFENSE.md`
 - `docs/FINAL_CHECKLIST.md`
-- `docs/ADAPTIVE_COMPRESSION_ROADMAP.md`
-- `docs/PHASE_ADAPTIVE_01_UI_UX.md`
-- `docs/PHASE_ADAPTIVE_02_CODEC_REGISTRY.md`
-- `docs/PHASE_ADAPTIVE_03_RLE_HUFFMAN.md`
-- `docs/PHASE_ADAPTIVE_04_LZ77_HUFFMAN.md`
-- `docs/PHASE_ADAPTIVE_05_AUTO_OPTIMIZER.md`
-- `docs/PHASE_ADAPTIVE_06_PARAMETER_OPTIMIZATION.md`
-- `docs/PHASE_ADAPTIVE_07_FINAL_BENCHMARK.md`
-- `docs/FINAL_PROJECT_SUMMARY.md`
+- `docs/EVOLUCION_Y_SIMULACION.md`
 
 ## Alcance
 

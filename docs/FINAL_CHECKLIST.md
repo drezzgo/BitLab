@@ -50,9 +50,9 @@
 
 - [ ] README describe las funcionalidades actuales.
 - [ ] No quedan documentos históricos con nombres `PHASE_*`.
-- [ ] No queda el roadmap interno en la entrega.
+- [ ] La evolución y el simulador están descritos en un documento vigente.
 - [ ] La guía de sustentación coincide con la implementación.
-- [ ] No se usan afirmaciones como “100% seguro” o “compresión garantizada”.
+- [ ] No se hacen promesas absolutas de seguridad ni de reducción de tamaño.
 
 ## Despliegue
 

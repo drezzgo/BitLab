@@ -33,11 +33,26 @@ export default function NetworkLab({ file, containerBytes, selectedCodecLabel }:
     return () => { active = false; };
   }, [file]);
 
+  if (!file) {
+    return (
+      <section className="network-lab network-lab-empty" id="redes" aria-labelledby="network-title">
+        <div className="network-intro">
+          <div>
+            <h3 id="network-title">Simula el envío por 5G y 6G</h3>
+            <p>Carga un archivo o elige un ejemplo. Después podrás comparar el tiempo estimado de envío del original y del contenedor .bitlab.</p>
+          </div>
+          <span className="network-sim-label">SIMULACIÓN LOCAL</span>
+        </div>
+        <a className="network-empty-action" href="#archivo">Elegir archivo</a>
+      </section>
+    );
+  }
+
   return (
     <section className="network-lab" id="redes" aria-labelledby="network-title">
       <div className="network-intro">
         <div>
-          <h2 id="network-title">Laboratorio de envío 5G / 6G</h2>
+          <h3 id="network-title">Laboratorio de envío 5G / 6G</h3>
           <p>Simula cuánto tardaría en transmitirse el archivo cargado. Compara los bytes originales con el contenedor comprimido cuando esté disponible.</p>
         </div>
         <span className="network-sim-label">SIMULACIÓN LOCAL</span>
@@ -65,7 +80,7 @@ export default function NetworkLab({ file, containerBytes, selectedCodecLabel }:
           const saved = original && compressed ? original.totalMs - compressed.totalMs : null;
           return (
             <article className="network-profile" key={profile.generation}>
-              <div className="network-profile-head"><h3>{profile.generation}</h3><small>{profile.note}</small></div>
+              <div className="network-profile-head"><h4>{profile.generation}</h4><small>{profile.note}</small></div>
               <div className="network-profile-inputs">
                 <label>Velocidad (Mb/s)<input type="number" min="0.1" max="100000" step="any" value={rate} onChange={(event) => setRates((current) => ({ ...current, [profile.generation]: Number(event.target.value) }))} /></label>
                 <label>Latencia (ms)<input type="number" min="0" max="100000" step="any" value={latency} onChange={(event) => setLatencies((current) => ({ ...current, [profile.generation]: Number(event.target.value) }))} /></label>
@@ -83,7 +98,7 @@ export default function NetworkLab({ file, containerBytes, selectedCodecLabel }:
 
       <div className="decision-panel">
         <div>
-          <h3>Selector inspirado en IA</h3>
+          <h4>Selector inspirado en IA</h4>
           <p>Árbol de decisión didáctico basado en una muestra de hasta 64 KiB. Recomienda qué codec probar; la elección automática real la hace BitLab midiendo el tamaño de cada contenedor.</p>
           <p className="decision-recovery">Al recuperar, BitLab lee del contenedor el codec usado, reconstruye los bytes y verifica SHA-256 cuando está disponible.</p>
         </div>

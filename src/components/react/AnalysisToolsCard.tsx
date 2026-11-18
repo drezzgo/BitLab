@@ -7,6 +7,7 @@ import CalculationAuditCards from './CalculationAuditCards';
 import CodingMetricsPanel from './CodingMetricsPanel';
 import SourceStatisticsPanel from './SourceStatisticsPanel';
 import WordSizeComparator from './WordSizeComparator';
+import { useDialogFocus } from './useDialogFocus';
 
 interface Props {
   file: File | null;
@@ -28,6 +29,7 @@ export default function AnalysisToolsCard({
   containerSizeBytes,
 }: Props) {
   const blendy = useRef<Blendy | null>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [enabled, setEnabled] = useState<Record<ToolId, boolean>>({
@@ -61,6 +63,8 @@ export default function AnalysisToolsCard({
   function close() {
     blendy.current?.untoggle(TOOL_CARD_ID, () => setOpen(false));
   }
+
+  useDialogFocus(open, dialogRef, close);
 
   return (
     <section className="adaptive-tool-section" id="analisis">
@@ -121,6 +125,8 @@ export default function AnalysisToolsCard({
           }}
         >
           <section
+            ref={dialogRef}
+            tabIndex={-1}
             className="format-dialog adaptive-dialog"
             data-blendy-to={TOOL_CARD_ID}
             role="dialog"

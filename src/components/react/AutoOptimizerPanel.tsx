@@ -44,9 +44,8 @@ export default function AutoOptimizerPanel({
     <section className="optimizer-panel" aria-labelledby="optimizer-title">
       <div className="optimizer-heading">
         <div>
-          <span>Optimización automática</span>
           <h3 id="optimizer-title">
-            {selectedCodecLabel} encontró el menor resultado.
+            Por qué ganó {selectedCodecLabel}
           </h3>
           <p>
             BitLab comparó {candidates.length} combinaciones de codec y parámetros,
@@ -62,46 +61,33 @@ export default function AutoOptimizerPanel({
         </div>
       </div>
 
-      <div className="optimizer-evolution">
-        <article>
-          <span>Antes</span>
-          <strong>Una configuración por codec</strong>
-          <p>La decisión era cuál algoritmo producía menos bytes con parámetros fijos.</p>
-        </article>
-        <article>
-          <span>Ahora</span>
-          <strong>Codec + configuración</strong>
-          <p>También exploramos N de Huffman y perfiles de búsqueda LZ77.</p>
-        </article>
-      </div>
+      <details className="optimizer-details">
+        <summary>Ver las {candidates.length} combinaciones evaluadas</summary>
+        <div className="optimizer-candidates parameter-candidates">
+          {sorted.map((candidate, index) => {
+            const isWinner = candidate.id === selectedCandidateId;
+            const deltaBytes = candidate.containerBytes - originalBytes;
 
-      <div className="optimizer-candidates parameter-candidates">
-        {sorted.map((candidate, index) => {
-          const isWinner = candidate.id === selectedCandidateId;
-          const deltaBytes = candidate.containerBytes - originalBytes;
-
-          return (
-            <article
-              key={candidate.id}
-              className={isWinner ? 'winner' : ''}
-            >
-              <div>
-                <strong>{index + 1}. {candidate.label}</strong>
-                {isWinner && <span>elegido</span>}
-              </div>
-              <em>{candidate.parameterLabel}</em>
-              <b>{formatBytes(candidate.containerBytes)}</b>
-              <small>
-                {deltaBytes <= 0 ? '−' : '+'}
-                {formatBytes(Math.abs(deltaBytes))}
-                {' · '}
-                {candidate.variationPercent > 0 ? '+' : ''}
-                {formatPercent(candidate.variationPercent)} %
-              </small>
-            </article>
-          );
-        })}
-      </div>
+            return (
+              <article key={candidate.id} className={isWinner ? 'winner' : ''}>
+                <div>
+                  <strong>{index + 1}. {candidate.label}</strong>
+                  {isWinner && <span>elegido</span>}
+                </div>
+                <em>{candidate.parameterLabel}</em>
+                <b>{formatBytes(candidate.containerBytes)}</b>
+                <small>
+                  {deltaBytes <= 0 ? '−' : '+'}
+                  {formatBytes(Math.abs(deltaBytes))}
+                  {' · '}
+                  {candidate.variationPercent > 0 ? '+' : ''}
+                  {formatPercent(candidate.variationPercent)} %
+                </small>
+              </article>
+            );
+          })}
+        </div>
+      </details>
 
       {winner && winner.containerBytes >= originalBytes && (
         <p className="optimizer-warning">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { createBlendy, type Blendy } from 'blendy';
+import { useDialogFocus } from './useDialogFocus';
 
 interface GuideCard {
   id: string;
@@ -107,6 +108,7 @@ const cards: GuideCard[] = [
 
 export default function ContainerFormatGuide() {
   const blendy = useRef<Blendy | null>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -127,6 +129,8 @@ export default function ContainerFormatGuide() {
     const id = activeId;
     blendy.current?.untoggle(id, () => setActiveId((current) => current === id ? null : current));
   }
+
+  useDialogFocus(Boolean(activeId), dialogRef, close);
 
   const active = cards.find((card) => card.id === activeId) ?? null;
 
@@ -161,11 +165,11 @@ export default function ContainerFormatGuide() {
         <div className="format-dialog-backdrop" onMouseDown={(event) => {
           if (event.currentTarget === event.target) close();
         }}>
-          <section className="format-dialog" data-blendy-to={active.id} role="dialog" aria-modal="true">
+          <section ref={dialogRef} tabIndex={-1} className="format-dialog" data-blendy-to={active.id} role="dialog" aria-modal="true" aria-labelledby={`${active.id}-title`}>
             <header>
               <div>
                 <span>{active.index}</span>
-                <h3>{active.title}</h3>
+                <h3 id={`${active.id}-title`}>{active.title}</h3>
               </div>
               <button type="button" onClick={close} aria-label="Cerrar">×</button>
             </header>

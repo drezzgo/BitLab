@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createBlendy, type Blendy } from 'blendy';
 import type { Lz77HuffmanContainerMetrics } from '../../core/container';
+import { useDialogFocus } from './useDialogFocus';
 
 const CARD_ID = 'bitlab-compression-evolution';
 
@@ -41,6 +42,7 @@ export default function CompressionEvolutionCard({
   rleContainerBytes,
 }: Props) {
   const blendy = useRef<Blendy | null>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -59,6 +61,8 @@ export default function CompressionEvolutionCard({
   function close() {
     blendy.current?.untoggle(CARD_ID, () => setOpen(false));
   }
+
+  useDialogFocus(open, dialogRef, close);
 
   const versusHuffman = lz77Metrics
     ? comparisonPercent(lz77Metrics.containerBytes, huffmanContainerBytes)
@@ -97,6 +101,8 @@ export default function CompressionEvolutionCard({
           }}
         >
           <section
+            ref={dialogRef}
+            tabIndex={-1}
             className="format-dialog adaptive-dialog adaptive-evolution-dialog"
             data-blendy-to={CARD_ID}
             role="dialog"

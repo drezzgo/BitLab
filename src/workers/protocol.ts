@@ -8,11 +8,18 @@ import type {
 } from '../core/optimizer';
 import type { SourceStatistics } from '../core/statistics';
 import type { WordSizeComparisonRow } from '../core/comparison';
+import type { ErrorSimulationOptions, ErrorSimulationResult } from '../core/network/error-simulation';
 
 export type ManualEncodeCodec = RegisteredCodecKey;
 export type EncodeCodec = ManualEncodeCodec | 'auto';
 
 export type BitLabWorkerRequest =
+  | {
+      id: string;
+      operation: 'simulate-channel';
+      bytes: ArrayBuffer;
+      options: ErrorSimulationOptions;
+    }
   | {
       id: string;
       operation: 'encode';
@@ -51,6 +58,12 @@ export type BitLabWorkerProgress = {
 };
 
 export type BitLabWorkerResult =
+  | {
+      id: string;
+      type: 'result';
+      operation: 'simulate-channel';
+      simulation: ErrorSimulationResult;
+    }
   | {
       id: string;
       type: 'result';

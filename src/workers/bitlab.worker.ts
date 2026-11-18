@@ -15,9 +15,11 @@ import {
   optimizeCompression,
 } from '../core/optimizer';
 import { analyzeSourceStatistics } from '../core/statistics';
+import { simulateErrorControl } from '../core/network/error-simulation';
 import type {
   BitLabWorkerMessage,
   BitLabWorkerRequest,
+  ManualEncodeCodec,
 } from './protocol';
 
 const workerScope = self as unknown as {
@@ -33,7 +35,7 @@ function send(message: BitLabWorkerMessage, transfer: Transferable[] = []): void
 }
 
 function manualParameterLabel(
-  codec: Exclude<BitLabWorkerRequest, { operation: 'decode' | 'analyze' | 'compare' }>['codec'],
+  codec: ManualEncodeCodec,
   wordSizeBits: number,
 ): string {
   if (codec === 'lz77-huffman') {
@@ -46,6 +48,17 @@ workerScope.addEventListener('message', async (event) => {
   const request = event.data;
 
   try {
+    if (request.operation === 'simulate-channel') {
+      const simulation = simulateErrorControl(new Uint8Array(request.bytes), request.options);
+      send({
+        id: request.id,
+        type: 'result',
+        operation: 'simulate-channel',
+        simulation,
+      }, [simulation.recovered.buffer]);
+      return;
+    }
+
     if (request.operation === 'encode') {
       const bytes = new Uint8Array(request.bytes);
       const searchCount = request.codec === 'auto'

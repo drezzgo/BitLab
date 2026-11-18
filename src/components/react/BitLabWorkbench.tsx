@@ -18,6 +18,7 @@ import CompressionEvolutionCard from './CompressionEvolutionCard';
 import FilePickerPreview from './FilePickerPreview';
 import FilePreview from './FilePreview';
 import NetworkLab from './NetworkLab';
+import ErrorControlLab from './ErrorControlLab';
 import {
   makeRequestId,
   startWorkerTask,
@@ -26,7 +27,7 @@ import {
 } from './worker-client';
 
 const QUICK_SIZES = [2, 4, 8, 13, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65535];
-const ENCODE_SECTIONS = new Set(['redes', 'analisis', 'benchmark', 'mejoras', 'formato-bitlab']);
+const ENCODE_SECTIONS = new Set(['redes', 'control-errores', 'analisis', 'benchmark', 'mejoras', 'formato-bitlab']);
 type Mode = 'encode' | 'decode';
 type EncodeResult = Extract<BitLabWorkerResult, { operation: 'encode' }>;
 type DecodeWorkerResult = Extract<BitLabWorkerResult, { operation: 'decode' }>;
@@ -191,9 +192,9 @@ export default function BitLabWorkbench() {
     return () => URL.revokeObjectURL(url);
   }, [containerBytes, decodeResult]);
 
-  function changeMode(next: Mode) {
+  function changeMode(next: Mode, nextFile: File | null = null) {
     setMode(next);
-    setFile(null);
+    setFile(nextFile);
     const url = new URL(window.location.href);
     url.searchParams.set('modo', next === 'encode' ? 'comprimir' : 'decodificar');
     history.replaceState({}, '', `${url.pathname}${url.search}#herramienta`);
@@ -515,6 +516,18 @@ export default function BitLabWorkbench() {
           )}
 
           <NetworkLab file={file} containerBytes={containerBytes?.length ?? null} selectedCodecLabel={selectedCodecLabel} />
+          <ErrorControlLab
+            file={file}
+            containerBytes={containerBytes}
+            onRecoverContainer={(receivedFile) => {
+              changeMode('decode', receivedFile);
+              requestAnimationFrame(() => {
+                const tab = document.querySelector<HTMLButtonElement>('.mode-switch button[aria-pressed="true"]');
+                tab?.focus({ preventScroll: true });
+                document.getElementById('herramienta')?.scrollIntoView();
+              });
+            }}
+          />
 
           <div className="adaptive-feature-stack">
             <AnalysisToolsCard

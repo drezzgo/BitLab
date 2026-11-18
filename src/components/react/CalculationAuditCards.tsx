@@ -4,6 +4,7 @@ import { createBlendy, type Blendy } from 'blendy';
 import { calculateSegmentation } from '../../core/bits';
 import { BITLAB_FIXED_HEADER_BYTES } from '../../core/container';
 import { INTEGRITY_ENVELOPE_OVERHEAD_BYTES } from '../../core/integrity';
+import { useDialogFocus } from './useDialogFocus';
 
 interface CalculationAuditCardsProps {
   file: File | null;
@@ -37,7 +38,7 @@ export default function CalculationAuditCards({
   title = '¿De dónde salen estos números?',
 }: CalculationAuditCardsProps) {
   const blendy = useRef<Blendy | null>(null);
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -212,18 +213,6 @@ export default function CalculationAuditCards({
 
     blendy.current?.update();
     blendy.current?.toggle(activeId);
-    requestAnimationFrame(() => closeButtonRef.current?.focus());
-  }, [activeId]);
-
-  useEffect(() => {
-    if (!activeId) return;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') closeActive();
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeId]);
 
   function closeActive() {
@@ -234,6 +223,8 @@ export default function CalculationAuditCards({
       setActiveId((current) => (current === closingId ? null : current));
     });
   }
+
+  useDialogFocus(Boolean(activeId), dialogRef, closeActive);
 
   if (!file || cards.length === 0) return null;
 
@@ -279,6 +270,8 @@ export default function CalculationAuditCards({
           }}
         >
           <section
+            ref={dialogRef}
+            tabIndex={-1}
             className="audit-dialog"
             data-blendy-to={active.id}
             role="dialog"
@@ -293,7 +286,6 @@ export default function CalculationAuditCards({
                   <strong>{active.value}</strong>
                 </div>
                 <button
-                  ref={closeButtonRef}
                   className="audit-close-button"
                   type="button"
                   aria-label={`Cerrar detalle de ${active.title}`}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { createBlendy, type Blendy } from 'blendy';
+import { useDialogFocus } from './useDialogFocus';
 import {
   benchmarkRowsToCsv,
   benchmarkRowsToJson,
@@ -59,6 +60,7 @@ function downloadText(
 
 export default function BenchmarkPanel() {
   const blendy = useRef<Blendy | null>(null);
+  const dialogRef = useRef<HTMLElement>(null);
   const activeTask = useRef<WorkerTask<EncodeResult> | null>(null);
   const cancelled = useRef(false);
 
@@ -95,6 +97,8 @@ export default function BenchmarkPanel() {
     if (running) return;
     blendy.current?.untoggle(CARD_ID, () => setOpen(false));
   }
+
+  useDialogFocus(open, dialogRef, close, !running);
 
   function cancelBenchmark() {
     cancelled.current = true;
@@ -213,6 +217,8 @@ export default function BenchmarkPanel() {
           }}
         >
           <section
+            ref={dialogRef}
+            tabIndex={-1}
             className="format-dialog adaptive-dialog benchmark-dialog"
             data-blendy-to={CARD_ID}
             role="dialog"

@@ -26,6 +26,7 @@ import {
 } from './worker-client';
 
 const QUICK_SIZES = [2, 4, 8, 13, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65535];
+const ENCODE_SECTIONS = new Set(['redes', 'analisis', 'benchmark', 'mejoras', 'formato-bitlab']);
 type Mode = 'encode' | 'decode';
 type EncodeResult = Extract<BitLabWorkerResult, { operation: 'encode' }>;
 type DecodeWorkerResult = Extract<BitLabWorkerResult, { operation: 'decode' }>;
@@ -116,11 +117,36 @@ export default function BitLabWorkbench() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('modo') === 'decodificar') setMode('decode');
-    if (window.location.hash === '#redes') {
-      window.requestAnimationFrame(() => document.getElementById('redes')?.scrollIntoView());
+    const target = window.location.hash.slice(1);
+    if (params.get('modo') === 'decodificar' && !ENCODE_SECTIONS.has(target)) setMode('decode');
+    if (params.get('modo') === 'decodificar' && ENCODE_SECTIONS.has(target)) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('modo', 'comprimir');
+      history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
     }
+    if (target) window.requestAnimationFrame(() => document.getElementById(target)?.scrollIntoView());
   }, []);
+
+  useEffect(() => {
+    if (mode !== 'decode') return;
+    function handleNavigation(event: MouseEvent) {
+      const target = event.target;
+      const link = target instanceof Element ? target.closest<HTMLAnchorElement>('a[href^="#"]') : null;
+      if (!link) return;
+      const section = link.hash.slice(1);
+      if (!ENCODE_SECTIONS.has(section) && !link.classList.contains('topbar-action')) return;
+      event.preventDefault();
+      setMode('encode');
+      setFile(null);
+      const url = new URL(window.location.href);
+      url.searchParams.set('modo', 'comprimir');
+      url.hash = section;
+      history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => document.getElementById(section)?.scrollIntoView()));
+    }
+    document.addEventListener('click', handleNavigation);
+    return () => document.removeEventListener('click', handleNavigation);
+  }, [mode]);
 
   useEffect(() => () => taskRef.current?.cancel(), []);
 
@@ -351,7 +377,7 @@ export default function BitLabWorkbench() {
 
       {mode === 'encode' ? (
         <>
-          <div className="workflow-grid">
+          <div className="workflow-grid" id="archivo">
             <FilePickerPreview file={file} onFile={setFile} />
             <div className="settings-panel">
               <div className="codec-picker" aria-label="Estrategia de salida">
@@ -435,9 +461,7 @@ export default function BitLabWorkbench() {
             <p>Compara fuentes con comportamientos estadísticos diferentes.</p>
           </details>
 
-          <NetworkLab file={file} containerBytes={containerBytes?.length ?? null} selectedCodecLabel={selectedCodecLabel} />
-
-          {file && <div className="metric-grid">
+          {file && !containerBytes && <div className="metric-grid">
             <article><span>Bits originales</span><strong>{segmentation?.originalBitLength.toLocaleString('es-CO') ?? '—'}</strong></article>
             <article><span>Símbolos</span><strong>{segmentation?.symbolCount.toLocaleString('es-CO') ?? '—'}</strong></article>
             <article><span>Padding</span><strong>{segmentation ? `${segmentation.paddingBits} bits` : '—'}</strong></article>
@@ -490,6 +514,8 @@ export default function BitLabWorkbench() {
             />
           )}
 
+          <NetworkLab file={file} containerBytes={containerBytes?.length ?? null} selectedCodecLabel={selectedCodecLabel} />
+
           <div className="adaptive-feature-stack">
             <AnalysisToolsCard
               file={file}
@@ -498,12 +524,12 @@ export default function BitLabWorkbench() {
               huffmanMetrics={huffmanMetrics}
               containerSizeBytes={containerBytes?.length ?? null}
             />
+            <BenchmarkPanel />
             <CompressionEvolutionCard
               lz77Metrics={lz77HuffmanMetrics}
               huffmanContainerBytes={strategyResults.huffman ?? null}
               rleContainerBytes={strategyResults['rle-huffman'] ?? null}
             />
-            <BenchmarkPanel />
             <CompactFormatCard />
           </div>
         </>

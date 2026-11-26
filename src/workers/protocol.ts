@@ -19,6 +19,7 @@ export type BitLabWorkerRequest =
       operation: 'simulate-channel';
       bytes: ArrayBuffer;
       options: ErrorSimulationOptions;
+      restoreContainer?: boolean;
     }
   | {
       id: string;
@@ -63,6 +64,7 @@ export type BitLabWorkerResult =
       type: 'result';
       operation: 'simulate-channel';
       simulation: ErrorSimulationResult;
+      restoredFile?: { bytes: ArrayBuffer; name: string; type: string };
     }
   | {
       id: string;

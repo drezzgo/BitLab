@@ -55,6 +55,17 @@ describe('códigos de control de errores', () => {
 });
 
 describe('canal binario y métricas', () => {
+  it.each([1, 2] as const)('invierte %i bits en los datos de la fuente y conserva ambas etapas', (count) => {
+    const input = Uint8Array.of(0x42, 0x76);
+    const result = simulateErrorControl(input, { code: 'hamming74', probability: 0, seed: 0, demonstrationErrors: count });
+    expect(result.receivedPayload).toEqual(Uint8Array.of(count === 1 ? 0x43 : 0x41, 0x76));
+    expect(result.receivedPayloadErrors).toBe(count);
+    expect(result.channelBitErrors).toBe(count);
+    expect(result.recovered).toEqual(count === 1 ? input : result.receivedPayload);
+    expect(result.residualBitErrors).toBe(count === 1 ? 0 : 2);
+    expect(input).toEqual(Uint8Array.of(0x42, 0x76));
+  });
+
   it('implementa p=0, p=1 y el umbral estricto para cada bit', () => {
     const sent = bits('1011');
     const received = new Uint8Array(4);
@@ -74,6 +85,7 @@ describe('canal binario y métricas', () => {
     const result = simulateErrorControl(input, options);
     expect(result).toEqual(simulateErrorControl(input, options));
     expect(result).toMatchObject({
+      receivedPayload: input, receivedPayloadErrors: 0,
       recovered: input,
       payloadBits: 8, transmittedBits: 14, redundancyBits: 6,
       channelBitErrors: 1, channelFrameErrors: 1, frames: 2,
@@ -94,7 +106,7 @@ describe('canal binario y métricas', () => {
 
   it('cuenta errores que una comprobación deja pasar', () => {
     const result = simulateErrorControl(Uint8Array.of(0x5a), { code: 'hamming74', probability: 1, seed: 42 });
-    expect(result).toMatchObject({ channelBer: 1, channelFer: 1, residualBer: 1, residualFer: 1, undetectedFrames: 2, detectedFrames: 0 });
+    expect(result).toMatchObject({ receivedPayload: Uint8Array.of(0xa5), receivedPayloadErrors: 8, channelBer: 1, channelFer: 1, residualBer: 1, residualFer: 1, undetectedFrames: 2, detectedFrames: 0 });
   });
 
   it.each([['parity', 1], ['crc16', 16]] as const)('calcula redundancia en la última trama parcial de %s', (code, checkBits) => {

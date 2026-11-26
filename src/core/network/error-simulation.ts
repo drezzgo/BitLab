@@ -1,5 +1,5 @@
 import { createChannelRandom, transmitFrame } from './error-channel';
-import { decodeErrorFrame, encodeErrorFrame, ERROR_CODES, type ErrorCode } from './error-codes';
+import { decodeErrorFrame, encodeErrorFrame, ERROR_CODES, HAMMING_DATA_POSITIONS, type ErrorCode } from './error-codes';
 
 export const MAX_CHANNEL_BYTES = 1024 * 1024;
 
@@ -7,6 +7,8 @@ export interface ErrorSimulationOptions {
   code: ErrorCode;
   probability: number;
   seed: number;
+  /** Invert this many data bits in the second Hamming frame, leaving all other frames intact. */
+  demonstrationErrors?: 1 | 2;
 }
 
 export interface FrameExample {
@@ -21,6 +23,8 @@ export interface FrameExample {
 }
 
 export interface ErrorSimulationResult {
+  receivedPayload: Uint8Array<ArrayBuffer>;
+  receivedPayloadErrors: number;
   recovered: Uint8Array<ArrayBuffer>;
   payloadBits: number;
   transmittedBits: number;
@@ -44,7 +48,7 @@ export interface ErrorSimulationResult {
 
 export function simulateErrorControl(
   input: Uint8Array,
-  { code, probability, seed }: ErrorSimulationOptions,
+  { code, probability, seed, demonstrationErrors }: ErrorSimulationOptions,
 ): ErrorSimulationResult {
   if (input.length === 0 || input.length > MAX_CHANNEL_BYTES) {
     throw new RangeError('La entrada debe contener entre 1 byte y 1 MiB.');
@@ -54,12 +58,17 @@ export function simulateErrorControl(
   }
 
   const random = createChannelRandom(seed);
+  if (demonstrationErrors !== undefined && (code !== 'hamming74' || ![1, 2].includes(demonstrationErrors))) {
+    throw new RangeError('La demostración requiere Hamming y una o dos inversiones.');
+  }
   const config = ERROR_CODES[code];
   const payloadBits = input.length * 8;
   const frames = Math.ceil(payloadBits / config.payloadBits);
   const redundancyBits = frames * config.checkBits;
   const transmittedBits = payloadBits + redundancyBits;
   const recovered = new Uint8Array(input.length);
+  const receivedPayload = new Uint8Array(input.length);
+  let receivedPayloadErrors = 0;
   const examples: FrameExample[] = [];
   let affectedExample: FrameExample | null = null;
   let channelBitErrors = 0;
@@ -94,12 +103,25 @@ export function simulateErrorControl(
       data[bit] = (input[offset >>> 3] >>> (7 - (offset & 7))) & 1;
     }
     encodeErrorFrame(code, data, sent);
-    const flips = transmitFrame(sent, received, probability, random);
+    let flips = 0;
+    if (demonstrationErrors) {
+      received.set(sent);
+      if (index === 1) {
+        received[HAMMING_DATA_POSITIONS[3]] ^= 1;
+        if (demonstrationErrors === 2) received[HAMMING_DATA_POSITIONS[2]] ^= 1;
+        flips = demonstrationErrors;
+      }
+    } else {
+      flips = transmitFrame(sent, received, probability, random);
+    }
     const syndrome = decodeErrorFrame(code, received, decoded);
 
     let payloadErrors = 0;
     for (let bit = 0; bit < length; bit++) {
       const offset = start + bit;
+      const raw = received[code === 'hamming74' ? HAMMING_DATA_POSITIONS[bit] : bit];
+      receivedPayload[offset >>> 3] |= raw << (7 - (offset & 7));
+      if (raw !== data[bit]) receivedPayloadErrors++;
       recovered[offset >>> 3] |= decoded[bit] << (7 - (offset & 7));
       if (data[bit] !== decoded[bit]) payloadErrors++;
     }
@@ -126,7 +148,7 @@ export function simulateErrorControl(
   if (affectedExample) examples.push(affectedExample);
 
   return {
-    recovered, payloadBits, transmittedBits, redundancyBits, frames,
+    receivedPayload, receivedPayloadErrors, recovered, payloadBits, transmittedBits, redundancyBits, frames,
     codeRate: payloadBits / transmittedBits,
     channelBitErrors, channelFrameErrors, residualBitErrors, residualFrameErrors,
     channelBer: channelBitErrors / transmittedBits,

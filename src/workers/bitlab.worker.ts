@@ -50,12 +50,21 @@ workerScope.addEventListener('message', async (event) => {
   try {
     if (request.operation === 'simulate-channel') {
       const simulation = simulateErrorControl(new Uint8Array(request.bytes), request.options);
+      const transfer = [simulation.recovered.buffer, simulation.receivedPayload.buffer];
+      let restoredFile;
+      if (request.restoreContainer && simulation.residualBitErrors === 0) {
+        const restored = restoreBitLabContainer(simulation.recovered);
+        const bytes = restored.bytes.slice().buffer;
+        restoredFile = { bytes, name: restored.fileName, type: restored.mimeType };
+        transfer.push(bytes);
+      }
       send({
         id: request.id,
         type: 'result',
         operation: 'simulate-channel',
         simulation,
-      }, [simulation.recovered.buffer]);
+        restoredFile,
+      }, transfer);
       return;
     }
 

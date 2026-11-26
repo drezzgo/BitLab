@@ -6,7 +6,7 @@ export const ERROR_CODES = {
 
 export type ErrorCode = keyof typeof ERROR_CODES;
 
-const HAMMING_DATA_POSITIONS = [2, 4, 5, 6] as const;
+export const HAMMING_DATA_POSITIONS = [2, 4, 5, 6] as const;
 
 // MSB first, polynomial 0x1021, initial remainder 0, no reflection or final XOR.
 export function crc16(bits: Uint8Array): number {

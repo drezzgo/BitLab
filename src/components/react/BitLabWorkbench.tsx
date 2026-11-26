@@ -519,6 +519,7 @@ export default function BitLabWorkbench() {
           <ErrorControlLab
             file={file}
             containerBytes={containerBytes}
+            codecLabel={selectedCodecLabel}
             onRecoverContainer={(receivedFile) => {
               changeMode('decode', receivedFile);
               requestAnimationFrame(() => {

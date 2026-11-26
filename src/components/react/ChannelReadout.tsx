@@ -5,23 +5,6 @@ import type { ErrorSimulationResult, FrameExample } from '../../core/network/err
 export const channelInteger = new Intl.NumberFormat('es-CO');
 export const channelPercent = new Intl.NumberFormat('es-CO', { style: 'percent', maximumSignificantDigits: 4 });
 
-const steps = [
-  ['Datos originales', 'Se separan en grupos de bits.'],
-  ['Emisor', 'Añade bits de comprobación.'],
-  ['Canal', 'Puede cambiar un 0 por un 1, o al revés.'],
-  ['Receptor', 'Comprueba y recupera los datos.'],
-] as const;
-
-export function ChannelFlow() {
-  return (
-    <ol className="channel-flow" aria-label="Etapas de la transmisión">
-      {steps.map(([label, description]) => (
-        <li key={label}><strong>{label}</strong><span>{description}</span></li>
-      ))}
-    </ol>
-  );
-}
-
 function Bits({ value, reference, isRedundant, inspectedPosition }: {
   value: string;
   reference?: string;

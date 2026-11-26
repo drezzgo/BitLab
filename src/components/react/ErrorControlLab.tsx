@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ERROR_CODES, type ErrorCode } from '../../core/network/error-codes';
-import { MAX_CHANNEL_BYTES, type ErrorSimulationOptions, type ErrorSimulationResult } from '../../core/network/error-simulation';
+import { MAX_CHANNEL_BYTES, type ErrorSimulationOptions } from '../../core/network/error-simulation';
 import type { BitLabWorkerResult } from '../../workers/protocol';
-import ChannelReadout, { ChannelFlow, channelInteger, channelRunDescription } from './ChannelReadout';
+import ChannelReadout, { channelInteger, channelRunDescription } from './ChannelReadout';
+import ChannelFileComparison, { type ChannelFiles } from './ChannelFileComparison';
 import { makeRequestId, startWorkerTask, type WorkerTask } from './worker-client';
 import '../../styles/error-control.css';
 
@@ -13,16 +14,14 @@ type SimulationJob = { task?: WorkerTask<WorkerResult> };
 interface Props {
   file: File | null;
   containerBytes: Uint8Array | null;
+  codecLabel: string | null;
   onRecoverContainer: (file: File) => void;
 }
 
-interface Run {
-  source: Source;
+interface Run extends ChannelFiles {
   name: string;
   code: ErrorCode;
-  probability: number;
-  seed: number;
-  result: ErrorSimulationResult;
+  description: string;
 }
 
 const descriptors: Record<ErrorCode, string> = {
@@ -31,10 +30,7 @@ const descriptors: Record<ErrorCode, string> = {
   hamming74: 'Añade tres bits de comprobación por cada cuatro de datos. Corrige un cambio por bloque. Con dos o más puede elegir una posición equivocada.',
 };
 
-const encoder = new TextEncoder();
-const decoder = new TextDecoder('utf-8', { ignoreBOM: true });
-
-export default function ErrorControlLab({ file, containerBytes, onRecoverContainer }: Props) {
+export default function ErrorControlLab({ file, containerBytes, codecLabel, onRecoverContainer }: Props) {
   const [chosenSource, setChosenSource] = useState<Source | null>(null);
   const [input, setInput] = useState('BitLab · Control de errores');
   const [code, setCode] = useState<ErrorCode>('hamming74');
@@ -45,40 +41,61 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
   const [error, setError] = useState('');
   const job = useRef<SimulationJob | null>(null);
 
-  useEffect(() => () => {
-    job.current?.task?.cancel();
-    job.current = null;
-  }, []);
+  useEffect(() => {
+    setChosenSource(null);
+    setRun(null);
+    setError('');
+    setBusy(false);
+    return () => {
+      job.current?.task?.cancel();
+      job.current = null;
+    };
+  }, [file, containerBytes]);
 
   const source = chosenSource ?? (containerBytes ? 'container' : file ? 'file' : 'text');
-  const name = source === 'container' ? `${file?.name ?? 'resultado'}.bitlab` : file?.name ?? '';
-  const sourceSize = source === 'file' ? file?.size : containerBytes?.length;
+  const original = useMemo(() => source === 'text'
+    ? new File([input], 'mensaje.txt', { type: 'text/plain' }) : file, [source, input, file]);
+  const name = source === 'container' ? `${file?.name ?? 'resultado'}.bitlab` : original?.name ?? '';
+  const mime = source === 'container' ? 'application/x-bitlab' : original?.type ?? '';
+  const sourceSize = source === 'container' ? containerBytes?.length : original?.size;
   const sourceMissing = source !== 'text' && sourceSize === undefined;
-  const sizeInvalid = sourceSize !== undefined && source !== 'text' && (sourceSize === 0 || sourceSize > MAX_CHANNEL_BYTES);
+  const sizeInvalid = sourceSize !== undefined && (sourceSize === 0 || sourceSize > MAX_CHANNEL_BYTES);
 
-  async function runTransmission(
-    runSource: Source,
-    runName: string,
-    options: ErrorSimulationOptions,
-    readBytes: () => ArrayBuffer | Promise<ArrayBuffer>,
-  ) {
-    if (job.current) return;
+  async function runTransmission(demonstrationErrors?: 1 | 2) {
+    if (job.current || sourceMissing || sizeInvalid || !original) return;
+    const options: ErrorSimulationOptions = demonstrationErrors
+      ? { code: 'hamming74', probability: 0, seed: 0, demonstrationErrors }
+      : { code, probability: Number(probability) / 100, seed: Number(seed) };
+    setCode(options.code);
     const current: SimulationJob = {};
     job.current = current;
     setBusy(true);
     setError('');
     setRun(null);
     try {
-      const bytes = await readBytes();
+      const sent = source === 'container' && containerBytes ? containerBytes : new Uint8Array(await original.arrayBuffer());
       if (job.current !== current) return;
+      const bytes = Uint8Array.from(sent).buffer;
       current.task = startWorkerTask<WorkerResult>({
         id: makeRequestId('channel'),
         operation: 'simulate-channel',
         bytes,
+        restoreContainer: source === 'container',
         options,
       }, [bytes]);
-      const { simulation } = await current.task.promise;
-      if (job.current === current) setRun({ ...options, source: runSource, name: runName, result: simulation });
+      const { simulation, restoredFile } = await current.task.promise;
+      if (job.current !== current) return;
+      let firstChange = sent.findIndex((byte, i) => byte !== simulation.recovered[i]);
+      if (firstChange < 0) firstChange = sent.findIndex((byte, i) => byte !== simulation.receivedPayload[i]);
+      setRun({
+        code: options.code, name, sent, result: simulation, restored: !!restoredFile,
+        focusByte: Math.max(0, firstChange),
+        description: demonstrationErrors ? `${name} · Hamming (7,4) · ${demonstrationErrors === 1 ? 'Una inversión' : 'Dos inversiones'} en la segunda trama`
+          : channelRunDescription(name, code, options.probability, options.seed),
+        received: new File([simulation.receivedPayload], name, { type: mime }),
+        output: restoredFile ? new File([restoredFile.bytes], restoredFile.name, { type: restoredFile.type })
+          : new File([simulation.recovered], name, { type: mime }),
+      });
     } catch (cause) {
       if (job.current === current) setError(cause instanceof Error ? cause.message : 'No se pudo simular el canal.');
     } finally {
@@ -89,42 +106,47 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
     }
   }
 
-  function simulate(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (sourceMissing || sizeInvalid) return;
-    const options = { code, probability: Number(probability) / 100, seed: Number(seed) };
-    if (source === 'text') void runTransmission(source, 'Texto UTF-8', options, () => encoder.encode(input).buffer);
-    if (source === 'file' && file) void runTransmission(source, name, options, () => file.arrayBuffer());
-    if (source === 'container' && containerBytes) {
-      void runTransmission(source, name, options, () => Uint8Array.from(containerBytes).buffer);
-    }
-  }
-
   function cancel() {
     job.current?.task?.cancel();
     job.current = null;
     setBusy(false);
   }
 
-  function simulateExample(exampleSeed: '1' | '3') {
-    setChosenSource('text');
-    setInput('Z');
-    setCode('hamming74');
-    setProbability('10');
-    setSeed(exampleSeed);
-    void runTransmission('text', 'Texto UTF-8', { code: 'hamming74', probability: 0.1, seed: Number(exampleSeed) }, () => encoder.encode('Z').buffer);
-  }
-
   const metrics = run?.result;
   return (
     <section className="channel-lab" id="control-errores" aria-labelledby="channel-title">
       <header className="channel-heading">
-        <h3 id="channel-title">Control de errores del canal</h3>
-        <p>Sigue el recorrido de un mensaje y explica qué cambió durante el envío y qué pudo recuperar el receptor.</p>
+        <h3 id="channel-title">Hamming y control de errores</h3>
+        <p>Transmite tu archivo, observa qué bits cambian en el canal y comprueba cuánto recupera el receptor.</p>
       </header>
 
       <div className="channel-workspace">
-        <form className="channel-form" onSubmit={simulate}>
+        <div className="channel-monitor">
+          <ChannelFileComparison original={original} containerName={source === 'container' ? name : undefined} codec={codecLabel} files={run ?? undefined} />
+          <div className="channel-examples">
+            <p>Probar Hamming con esta fuente</p>
+            <button className="secondary-button" type="button" disabled={busy || sourceMissing || sizeInvalid} onClick={() => void runTransmission(1)}>
+              <strong>Cambiar un bit</strong><span>Observar una corrección</span>
+            </button>
+            <button className="secondary-button" type="button" disabled={busy || sourceMissing || sizeInvalid} onClick={() => void runTransmission(2)}>
+              <strong>Cambiar dos bits</strong><span>Probar el límite en una trama</span>
+            </button>
+          </div>
+          <p className="channel-status" data-outcome={metrics ? (metrics.residualBitErrors === 0 ? 'match' : 'changed') : undefined} role="status">
+            {busy ? 'Simulando la transmisión…' : metrics && (metrics.residualBitErrors === 0
+              ? 'Los datos recuperados coinciden con el original.'
+              : metrics.residualBitErrors === 1
+                ? 'Queda un bit diferente en los datos recuperados.'
+                : `Quedan ${channelInteger.format(metrics.residualBitErrors)} bits diferentes en los datos recuperados.`)}
+          </p>
+            {run && metrics && source === 'container' && metrics.residualBitErrors === 0 &&
+              <button className="secondary-button" type="button" onClick={() => onRecoverContainer(
+                new File([metrics.recovered], run.name, { type: 'application/x-bitlab' }),
+              )}>Abrir .bitlab recibido en recuperación</button>}
+        </div>
+
+        <form className="channel-form" onChange={() => { setRun(null); setError(''); }}
+          onSubmit={event => { event.preventDefault(); void runTransmission(); }}>
           <fieldset className="channel-fields" disabled={busy}>
             <legend>Configurar la transmisión</legend>
             <label>Datos de entrada
@@ -163,43 +185,10 @@ export default function ErrorControlLab({ file, containerBytes, onRecoverContain
           </div>
           {error && <p className="error-banner" role="alert">{error}</p>}
         </form>
-
-        <div className="channel-monitor">
-          <ChannelFlow />
-          <div className="channel-examples">
-            <p>Demostración con Hamming</p>
-            <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateExample('1')}>
-              <strong>Un bit cambiado</strong><span>Ver cómo se recupera el dato</span>
-            </button>
-            <button className="secondary-button" type="button" disabled={busy} onClick={() => simulateExample('3')}>
-              <strong>Dos bits en la misma trama</strong><span>Ver por qué el receptor se equivoca</span>
-            </button>
-          </div>
-          <p className="channel-status" data-outcome={metrics ? (metrics.residualBitErrors === 0 ? 'match' : 'changed') : undefined} role="status">
-            {busy ? 'Simulando la transmisión…' : metrics && (metrics.residualBitErrors === 0
-              ? 'Los datos recuperados coinciden con el original.'
-              : metrics.residualBitErrors === 1
-                ? 'Queda un bit diferente en los datos recuperados.'
-                : `Quedan ${channelInteger.format(metrics.residualBitErrors)} bits diferentes en los datos recuperados.`)}
-          </p>
-          {!run && !busy && <div className="channel-empty">
-            <h4>Cómo leer la demostración</h4>
-            <ol>
-              <li>Ejecuta «Un bit cambiado» y mira la posición resaltada en la trama recibida.</li>
-              <li>Compara los datos recuperados con los originales. Deben coincidir.</li>
-              <li>Ejecuta el segundo ejemplo y observa qué dato sigue distinto.</li>
-            </ol>
-          </div>}
-          {run && metrics && <div className="channel-results">
-            <ChannelReadout result={metrics} code={run.code} description={channelRunDescription(run.name, run.code, run.probability, run.seed)} />
-            {run.source === 'text' && <p className="channel-text">Texto recuperado <samp>{decoder.decode(metrics.recovered)}</samp></p>}
-            {run.source === 'container' && metrics.residualBitErrors === 0 &&
-              <button className="secondary-button" type="button" onClick={() => onRecoverContainer(
-                new File([metrics.recovered], run.name, { type: 'application/x-bitlab' }),
-              )}>Abrir .bitlab recibido en recuperación</button>}
-          </div>}
-        </div>
       </div>
+      {run && metrics && <div className="channel-results">
+        <ChannelReadout result={metrics} code={run.code} description={run.description} />
+      </div>}
 
       <details className="channel-reference">
         <summary>Qué significa cada término</summary>

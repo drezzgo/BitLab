@@ -25,6 +25,30 @@ El procesamiento se realiza localmente en el navegador; BitLab no necesita un ba
 - laboratorio local de envío 5G/6G con velocidad, latencia y eficiencia editables;
 - árbol de decisión didáctico inspirado en IA que explica una sugerencia de codec.
 
+## Control de errores
+
+### Sustentación en dos minutos
+
+Abre **Control de errores** en el menú superior. Carga un archivo en el compresor o escribe un mensaje. Para reproducir los valores de la tabla, elige **Texto UTF-8** y escribe únicamente `B`. Las dos demostraciones usan la fuente seleccionada y aplican inversiones en la segunda trama de Hamming (7,4).
+
+1. Pulsa **Cambiar un bit**. El recorrido muestra `B → C → B`. En la segunda trama se invierte la posición **7**. Hamming la localiza y recupera el archivo.
+2. Pulsa **Cambiar dos bits**. El recorrido muestra `B → A → A`. Cambian las posiciones **6 y 7** de la segunda trama. El síndrome señala la posición **1**, un bit de comprobación. Ambos bits de datos quedan alterados.
+3. Abre **Guion para explicar este resultado**, justo debajo del inspector. Lee primero los conteos y luego explica **BER** y **FER**. La demostración muestra tanto la corrección de un error simple como el límite de esa corrección.
+
+| Transmisión de `B` | **Cambiar un bit** | **Cambiar dos bits** |
+| --- | ---: | ---: |
+| Bits enviados / datos originales | 14 / 8 | 14 / 8 |
+| Bits cambiados en el canal | 1 | 2 |
+| Tramas con cambios en el canal | 1 de 2 | 1 de 2 |
+| Tramas señaladas por el receptor | 1 | 1 |
+| Correcciones verificadas / equivocadas | 1 / 0 | 0 / 1 |
+| BER al recibir | 1 / 14 ≈ 7,143 % | 2 / 14 ≈ 14,29 % |
+| FER al recibir | 1 / 2 = 50 % | 1 / 2 = 50 % |
+| BER al recuperar | 0 / 8 = 0 % | 2 / 8 = 25 % |
+| FER al recuperar | 0 / 2 = 0 % | 1 / 2 = 50 % |
+
+Con un archivo mayor, los botones producen los mismos cambios en el primer byte y las tasas se calculan sobre todo el envío. Si transmites el contenedor comprimido, **Contenido** muestra el archivo subido y, cuando el contenedor coincide, el archivo descomprimido. **Bytes** compara las tres etapas del propio `.bitlab`.
+
 ## Arquitectura
 
 ```text
